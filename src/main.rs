@@ -1,10 +1,6 @@
 use anyhow::{anyhow, Result};
 use btleplug::api::BDAddr;
-use desk::{
-    desk::Desk,
-    logging,
-    utils::{Position, Velocity, UUID_STATE},
-};
+use desk::{controllers, desk::Desk, logging, utils::Position};
 use slog::{o, Drain, Level, LevelFilter, Logger};
 use std::{str::FromStr, sync::Mutex};
 use structopt::StructOpt;
@@ -34,11 +30,10 @@ async fn main() -> Result<()> {
     let root = Logger::root(Mutex::new(drain).fuse(), o!());
     logging::set(root);
 
-    let mut desk = Desk::find(args.desk).await?;
-    desk.move_up().await?;
-    desk.stop().await?;
-    desk.move_down().await?;
+    let desk = Desk::find(args.desk).await?;
+    let mut controller = controllers::create_controller(desk);
+    controller.move_to(Position::from_cm(68.0)?).await?;
     loop {
-        desk.update().await?;
+        controller.update().await?;
     }
 }
