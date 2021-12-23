@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = "*"
 btleplug = "*"
+futures = "*"
 lazy_static = "*"
 slog = "*"
 slog-term = "*"
 tokio = {version="*", features=["macros"]}
+uuid = "*"

@@ -248,10 +248,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "btleplug",
+ "futures",
  "lazy_static",
  "slog",
  "slog-term",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
