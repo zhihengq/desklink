@@ -1,14 +1,13 @@
-use lazy_static::lazy_static;
+use once_cell::sync::OnceCell;
 
-use slog::{o, Drain, Logger};
-use std::sync::Mutex;
+use slog::Logger;
 
-fn create_logger() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = Mutex::new(slog_term::FullFormat::new(decorator).build()).fuse();
-    Logger::root(drain, o!())
+static LOG: OnceCell<Logger> = OnceCell::new();
+
+pub fn set(logger: Logger) {
+    LOG.set(logger).expect("logger is already initialized");
 }
 
-lazy_static! {
-    pub static ref LOG: Logger = create_logger();
+pub fn get() -> &'static Logger {
+    LOG.get().expect("logger is not initialized")
 }

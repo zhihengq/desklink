@@ -9,8 +9,10 @@ edition = "2021"
 anyhow = "*"
 btleplug = "*"
 futures = "*"
-lazy_static = "*"
+once_cell = "*"
 slog = "*"
 slog-term = "*"
+structopt = "*"
+strum = {version="*", features=["derive"]}
 tokio = {version="*", features=["macros"]}
 uuid = "*"

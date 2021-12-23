@@ -1,5 +1,5 @@
 use crate::{
-    logging::LOG,
+    logging,
     utils::{Position, Velocity, UUID_COMMAND, UUID_REFERENCE_INPUT, UUID_STATE},
 };
 use anyhow::{anyhow, Result};
@@ -33,7 +33,7 @@ impl Desk {
         let id = loop {
             let event = events.next().await.expect("No more events");
             if let CentralEvent::DeviceDiscovered(id) = event {
-                debug!(LOG, "discovered device: {:?}", id);
+                debug!(logging::get(), "discovered device: {:?}", id);
                 if central.peripheral(&id).await?.address() == address {
                     break id;
                 }
@@ -52,7 +52,7 @@ impl Desk {
             .unwrap();
         let raw_state = device.read(char_state).await?;
         let (position, velocity) = Self::parse_state(raw_state);
-        info!(LOG, "initial state"; "position" => %position, "velocity" => %velocity);
+        info!(logging::get(), "initial state"; "position" => %position, "velocity" => %velocity);
 
         device.subscribe(char_state).await?;
         let events = device.notifications().await?;
@@ -70,7 +70,7 @@ impl Desk {
         assert!(event.uuid.to_hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
         let (position, velocity) = Self::parse_state(raw_state);
-        info!(LOG, "updated state"; "position" => %position, "velocity" => %velocity);
+        info!(logging::get(), "updated state"; "position" => %position, "velocity" => %velocity);
         self.position = position;
         self.velocity = velocity;
         Ok(())
