@@ -1,4 +1,4 @@
-mod logging;
+pub mod logging;
 
 use anyhow::{anyhow, Result};
 use btleplug::{
@@ -7,8 +7,6 @@ use btleplug::{
 };
 use std::time::Duration;
 use tokio::time;
-
-use logging::LOG;
 
 pub async fn scan() -> Result<()> {
     let manager = Manager::new().await?;
@@ -22,6 +20,6 @@ pub async fn scan() -> Result<()> {
     time::sleep(Duration::from_secs(5)).await;
     central.stop_scan().await?;
     let devices = central.peripherals().await?;
-    slog::info!(LOG, "Scanned devices"; "devices" => #?devices);
+    slog::info!(logging::get(), "Scanned devices"; "devices" => #?devices);
     Ok(())
 }

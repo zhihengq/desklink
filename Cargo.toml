@@ -8,7 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = "*"
 btleplug = "*"
-lazy_static = "*"
+once_cell = "*"
 slog = "*"
 slog-term = "*"
 tokio = {version="*", features=["macros"]}
+structopt = "*"
+strum = {version="*", features=["derive"]}
