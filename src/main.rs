@@ -35,6 +35,9 @@ async fn main() -> Result<()> {
     logging::set(root);
 
     let mut desk = Desk::find(args.desk).await?;
+    desk.move_up().await?;
+    desk.stop().await?;
+    desk.move_down().await?;
     loop {
         desk.update().await?;
     }
