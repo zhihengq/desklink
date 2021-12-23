@@ -1,9 +1,6 @@
 use crate::{
     logging,
-    utils::{
-        Position, Velocity, COMMAND_DOWN, COMMAND_STOP, COMMAND_UP, UUID_COMMAND,
-        UUID_REFERENCE_INPUT, UUID_STATE,
-    },
+    utils::{Position, Velocity, COMMAND_DOWN, COMMAND_STOP, COMMAND_UP, UUID_COMMAND, UUID_STATE},
 };
 use anyhow::{anyhow, Result};
 use btleplug::{
@@ -19,11 +16,10 @@ use std::pin::Pin;
 
 pub struct Desk {
     device: Peripheral,
-    position: Position,
-    velocity: Velocity,
-    events: Pin<Box<dyn Stream<Item = ValueNotification>>>,
+    pub position: Position,
+    pub velocity: Velocity,
+    events: Pin<Box<dyn Stream<Item = ValueNotification> + Send>>,
     char_command: Characteristic,
-    // char_reference_input: Characteristic,
 }
 
 impl Desk {
@@ -68,7 +64,7 @@ impl Desk {
 
         // initial state
         let raw_state = device.read(char_state).await?;
-        let (position, velocity) = Self::parse_state(raw_state);
+        let (position, velocity) = Self::parse_state(raw_state)?;
         info!(logging::get(), "initial state"; "position" => %position, "velocity" => %velocity);
 
         // event subscription
@@ -84,14 +80,16 @@ impl Desk {
         })
     }
 
-    pub async fn move_up(&self) -> Result<()> {
+    pub async fn move_up(&mut self) -> Result<()> {
+        debug!(logging::get(), "command: up");
         self.device
             .write(&self.char_command, &COMMAND_UP, WriteType::WithoutResponse)
             .await?;
         Ok(())
     }
 
-    pub async fn move_down(&self) -> Result<()> {
+    pub async fn move_down(&mut self) -> Result<()> {
+        debug!(logging::get(), "command: down");
         self.device
             .write(
                 &self.char_command,
@@ -102,7 +100,8 @@ impl Desk {
         Ok(())
     }
 
-    pub async fn stop(&self) -> Result<()> {
+    pub async fn stop(&mut self) -> Result<()> {
+        debug!(logging::get(), "command: stop");
         self.device
             .write(
                 &self.char_command,
@@ -117,19 +116,19 @@ impl Desk {
         let event = self.events.next().await.ok_or(anyhow!("No more events"))?;
         assert!(event.uuid.to_hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
-        let (position, velocity) = Self::parse_state(raw_state);
+        let (position, velocity) = Self::parse_state(raw_state)?;
         info!(logging::get(), "updated state"; "position" => %position, "velocity" => %velocity);
         self.position = position;
         self.velocity = velocity;
         Ok(())
     }
 
-    fn parse_state(raw_state: Vec<u8>) -> (Position, Velocity) {
+    fn parse_state(raw_state: Vec<u8>) -> Result<(Position, Velocity)> {
         assert!(raw_state.len() == 4);
         let raw_position: [u8; 2] = raw_state[0..2].try_into().unwrap();
         let raw_velocity: [u8; 2] = raw_state[2..4].try_into().unwrap();
-        let position = Position::from(raw_position);
+        let position = Position::try_from(raw_position)?;
         let velocity = Velocity::from(raw_velocity);
-        (position, velocity)
+        Ok((position, velocity))
     }
 }
