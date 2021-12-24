@@ -8,12 +8,15 @@ edition = "2021"
 [dependencies]
 anyhow = "*"
 async-trait = "*"
-btleplug = "*"
+btleplug = {version="*", features=["serde"]}
 futures = "*"
 once_cell = "*"
+serde = "*"
+shellexpand = "*"
 slog = "*"
 slog-term = "*"
 structopt = "*"
 strum = {version="*", features=["derive"]}
+toml = "*"
 tokio = {version="*", features=["macros", "time"]}
 uuid = "*"
