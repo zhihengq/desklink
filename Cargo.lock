@@ -106,6 +106,8 @@ dependencies = [
  "log",
  "objc",
  "parking_lot",
+ "serde",
+ "serde_bytes",
  "static_assertions",
  "thiserror",
  "tokio",
@@ -275,11 +277,14 @@ dependencies = [
  "btleplug",
  "futures",
  "once_cell",
+ "serde",
+ "shellexpand",
  "slog",
  "slog-term",
  "structopt",
  "strum",
  "tokio",
+ "toml",
  "uuid",
 ]
 
@@ -739,6 +744,9 @@ name = "serde"
 version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b9875c23cf305cd1fd7eb77234cbb705f21ea6a72c637a5c6db5fe4b8e7f008"
+dependencies = [
+ "serde_derive",
+]
 
 [[package]]
 name = "serde-xml-rs"
@@ -753,6 +761,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16ae07dd2f88a366f15bd0632ba725227018c69a1c8550a927324f8eb8368bb9"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,6 +778,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "shellexpand"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83bdb7831b2d85ddf4a7b148aa19d0587eddbe8671a436b7bd1182eaad0f2829"
+dependencies = [
+ "dirs-next",
 ]
 
 [[package]]
@@ -973,6 +999,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "0.5.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "unicode-segmentation"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -995,6 +1030,9 @@ name = "uuid"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc5cf98d8186244414c848017f0e2676b3fcb46807f6668a97dfe67359a3c4b7"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "vec_map"
