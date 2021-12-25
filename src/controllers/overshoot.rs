@@ -1,5 +1,5 @@
 use crate::{controllers::Controller, desk::Desk, utils::Position};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::time::Duration;
 use tokio::{select, time};
@@ -25,7 +25,12 @@ impl Controller for OvershootController {
         while self.desk.position < position {
             select! {
                 _ = interval.tick() => self.desk.move_up().await?,
-                result = self.desk.update() => result?,
+                result = self.desk.update() => {
+                    result?;
+                    if i16::from(&self.desk.velocity) == 0 {
+                        return Err(anyhow!("Aborted by user"));
+                    }
+                }
             }
         }
         self.desk.stop().await?;
@@ -37,7 +42,12 @@ impl Controller for OvershootController {
         while self.desk.position > position {
             select! {
                 _ = interval.tick() => self.desk.move_down().await?,
-                result = self.desk.update() => result?,
+                result = self.desk.update() => {
+                    result?;
+                    if i16::from(&self.desk.velocity) == 0 {
+                        return Err(anyhow!("Aborted by user"));
+                    }
+                }
             }
         }
         self.desk.stop().await?;
