@@ -1,5 +1,8 @@
-use crate::{controllers::Controller, desk::Desk, utils::Position};
-use anyhow::{anyhow, Result};
+use crate::{
+    controllers::{Controller, ControllerError},
+    desk::Desk,
+    utils::Position,
+};
 use async_trait::async_trait;
 use std::time::Duration;
 use tokio::{select, time};
@@ -20,7 +23,7 @@ impl Controller for OvershootController {
         &mut self.desk
     }
 
-    async fn move_up_to(&mut self, position: Position) -> Result<()> {
+    async fn move_up_to(&mut self, position: Position) -> Result<(), ControllerError> {
         let mut interval = time::interval(Duration::from_millis(500));
         while self.desk.position < position {
             select! {
@@ -28,7 +31,7 @@ impl Controller for OvershootController {
                 result = self.desk.update() => {
                     result?;
                     if i16::from(&self.desk.velocity) == 0 {
-                        return Err(anyhow!("Aborted by user"));
+                        return Err(ControllerError::Aborted);
                     }
                 }
             }
@@ -37,7 +40,7 @@ impl Controller for OvershootController {
         Ok(())
     }
 
-    async fn move_down_to(&mut self, position: Position) -> Result<()> {
+    async fn move_down_to(&mut self, position: Position) -> Result<(), ControllerError> {
         let mut interval = time::interval(Duration::from_millis(500));
         while self.desk.position > position {
             select! {
@@ -45,7 +48,7 @@ impl Controller for OvershootController {
                 result = self.desk.update() => {
                     result?;
                     if i16::from(&self.desk.velocity) == 0 {
-                        return Err(anyhow!("Aborted by user"));
+                        return Err(ControllerError::Aborted);
                     }
                 }
             }

@@ -282,6 +282,7 @@ dependencies = [
  "slog",
  "slog-term",
  "structopt",
+ "thiserror",
  "tokio",
  "toml",
  "uuid",

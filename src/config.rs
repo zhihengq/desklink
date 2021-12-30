@@ -1,10 +1,28 @@
-use anyhow::{anyhow, Result};
 use btleplug::api::BDAddr;
 use directories::ProjectDirs;
 use serde::{de::Deserializer, Deserialize};
 use slog::Level;
-use std::{io::ErrorKind, path::PathBuf, str::FromStr};
+use std::{io, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error("IO error: `{path}`")]
+    IoError {
+        path: PathBuf,
+        #[source]
+        error: io::Error,
+    },
+    #[error("TOML parsing error")]
+    TomlError(#[from] toml::de::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum LogLevelError {
+    #[error("Invalid log level: `{0}`")]
+    InvalidLogLevel(String),
+}
 
 mod args {
     use super::*;
@@ -19,13 +37,13 @@ mod args {
         #[structopt(short, long)]
         pub desk: Option<BDAddr>,
 
-        /// Config file path [default: ~/.deskconfig]
+        /// Override config file path
         #[structopt(short, long, parse(from_os_str))]
         pub config: Option<PathBuf>,
     }
 
-    fn parse_log_level(name: &str) -> Result<Level> {
-        Level::from_str(name).map_err(|()| anyhow!(format!("Invalid log level: '{}'", name)))
+    fn parse_log_level(name: &str) -> Result<Level, LogLevelError> {
+        Level::from_str(name).map_err(|()| LogLevelError::InvalidLogLevel(name.to_owned()))
     }
 }
 
@@ -80,7 +98,7 @@ pub struct DeskConfig {
 }
 
 impl Config {
-    pub fn get() -> Result<Self> {
+    pub fn get() -> Result<Self, ConfigError> {
         let args = args::Args::from_args();
         let (config_path, is_explicit) = match args.config {
             Some(path) => (Some(path), true),
@@ -94,10 +112,13 @@ impl Config {
             Some(config_path) => match std::fs::read_to_string(&config_path) {
                 Ok(config) => config,
                 Err(err) => {
-                    if err.kind() == ErrorKind::NotFound && !is_explicit {
+                    if err.kind() == io::ErrorKind::NotFound && !is_explicit {
                         "".to_owned()
                     } else {
-                        return Err(err.into());
+                        return Err(ConfigError::IoError {
+                            path: config_path,
+                            error: err,
+                        });
                     }
                 }
             },

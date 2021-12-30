@@ -1,4 +1,3 @@
-use anyhow::{anyhow, Result};
 use std::fmt::{Display, Error, Formatter};
 
 pub const UUID_STATE: &str = "99fa0021-338a-1024-8a49-009c0215f78a";
@@ -14,22 +13,32 @@ pub const COMMAND_STOP: [u8; 2] = [0xff, 0x00];
 //pub const COMMAND_REFERENCE_INPUT_UP: [u8; 2] = [0x00, 0x80];
 //pub const COMMAND_REFERENCE_INPUT_STOP: [u8; 2] = [0x01, 0x80];
 
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum PositionError {
+    #[error("Position out of bound: {0:.2} cm")]
+    OutOfBound(f32),
+    #[error("Invalid position: {0}")]
+    InvalidPosition(String),
+}
+
 #[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Position(u16);
 
 impl Position {
-    pub fn from_cm(cm: f32) -> Result<Self> {
+    pub fn from_cm(cm: f32) -> Result<Self, PositionError> {
         if !(62.0..=127.0).contains(&cm) {
-            return Err(anyhow!("Position out of bound: {:.2} cm", cm));
+            return Err(PositionError::OutOfBound(cm));
         }
         let pos = Position((cm * 100.0) as u16 - 6200);
         pos.check()?;
         Ok(pos)
     }
 
-    fn check(&self) -> Result<()> {
+    fn check(&self) -> Result<(), PositionError> {
         if self.0 > 6500 {
-            Err(anyhow!("Invalid position: {}", self))
+            Err(PositionError::InvalidPosition(format!("{}", self)))
         } else {
             Ok(())
         }
@@ -37,8 +46,8 @@ impl Position {
 }
 
 impl TryFrom<[u8; 2]> for Position {
-    type Error = anyhow::Error;
-    fn try_from(raw: [u8; 2]) -> Result<Self> {
+    type Error = PositionError;
+    fn try_from(raw: [u8; 2]) -> Result<Self, Self::Error> {
         let pos = Position(u16::from_le_bytes(raw));
         pos.check()?;
         Ok(pos)
