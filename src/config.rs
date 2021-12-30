@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use btleplug::api::BDAddr;
+use directories::ProjectDirs;
 use serde::{de::Deserializer, Deserialize};
-use shellexpand::tilde;
 use slog::Level;
 use std::{io::ErrorKind, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
@@ -82,33 +82,40 @@ pub struct DeskConfig {
 impl Config {
     pub fn get() -> Result<Self> {
         let args = args::Args::from_args();
-        let file: file::Config = toml::from_str(
-            &(match std::fs::read_to_string(
-                args.config
-                    .unwrap_or_else(|| PathBuf::from(tilde("~/.deskconfig").as_ref())),
-            ) {
+        let (config_path, is_explicit) = match args.config {
+            Some(path) => (Some(path), true),
+            None => {
+                let dirs = ProjectDirs::from("", "", "idasen-desk-controller");
+                let path = dirs.map(|dirs| dirs.config_dir().join("config.toml"));
+                (path, false)
+            }
+        };
+        let config_content = match config_path {
+            Some(config_path) => match std::fs::read_to_string(&config_path) {
                 Ok(config) => config,
                 Err(err) => {
-                    if err.kind() == ErrorKind::NotFound {
+                    if err.kind() == ErrorKind::NotFound && !is_explicit {
                         "".to_owned()
                     } else {
                         return Err(err.into());
                     }
                 }
-            }),
-        )?;
+            },
+            None => "".to_owned(),
+        };
+        let toml_config: file::Config = toml::from_str(&config_content)?;
 
         let config = Config {
             log: LogConfig {
                 level: args
                     .log_level
-                    .or_else(|| file.log.and_then(|l| l.level))
+                    .or_else(|| toml_config.log.and_then(|l| l.level))
                     .unwrap_or(Level::Info),
             },
             desk: DeskConfig {
                 address: args
                     .desk
-                    .or_else(|| file.desk.and_then(|d| d.address))
+                    .or_else(|| toml_config.desk.and_then(|d| d.address))
                     .expect("No desk MAC address is provided"),
             },
         };
