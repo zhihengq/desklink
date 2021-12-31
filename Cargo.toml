@@ -3,8 +3,6 @@ name = "desk"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 anyhow = "*"
 async-trait = "*"
@@ -12,11 +10,16 @@ btleplug = {version="*", features=["serde"]}
 directories = "*"
 futures = "*"
 once_cell = "*"
+prost = "*"
 serde = "*"
 slog = "*"
 slog-term = "*"
 structopt = "*"
 thiserror = "*"
 toml = "*"
+tonic = "*"
 tokio = {version="*", features=["macros", "time"]}
 uuid = "*"
+
+[build-dependencies]
+tonic-build = "*"
