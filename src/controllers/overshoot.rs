@@ -30,7 +30,7 @@ impl Controller for OvershootController {
                 _ = interval.tick() => self.desk.move_up().await?,
                 result = self.desk.update() => {
                     result?;
-                    if i16::from(&self.desk.velocity) == 0 {
+                    if self.desk.velocity.is_zero() {
                         return Err(ControllerError::Aborted);
                     }
                 }
@@ -47,7 +47,7 @@ impl Controller for OvershootController {
                 _ = interval.tick() => self.desk.move_down().await?,
                 result = self.desk.update() => {
                     result?;
-                    if i16::from(&self.desk.velocity) == 0 {
+                    if self.desk.velocity.is_zero() {
                         return Err(ControllerError::Aborted);
                     }
                 }

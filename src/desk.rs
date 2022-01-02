@@ -12,7 +12,7 @@ use btleplug::{
     },
     platform::{Manager, Peripheral},
 };
-use futures::stream::{Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use slog::{debug, info};
 use std::pin::Pin;
 use thiserror::Error;
@@ -21,13 +21,16 @@ use thiserror::Error;
 pub enum DeskError {
     #[error("Bluetooth error: {0}")]
     BluetoothError(#[from] btleplug::Error),
+
     #[error("No bluetooth adaptor")]
     NoBluetoothAdaptor,
+
     #[error("Cannot find bluetooth characteristic for {purpose}: {uuid}")]
     CharacteristicNotFound {
         purpose: &'static str,
         uuid: &'static str,
     },
+
     #[error(transparent)]
     InvalidPosition(#[from] PositionError),
 }

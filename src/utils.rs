@@ -1,4 +1,5 @@
 use std::fmt::{Display, Error, Formatter};
+use thiserror::Error;
 
 pub const UUID_STATE: &str = "99fa0021-338a-1024-8a49-009c0215f78a";
 pub const UUID_COMMAND: &str = "99fa0002-338a-1024-8a49-009c0215f78a";
@@ -13,8 +14,6 @@ pub const COMMAND_STOP: [u8; 2] = [0xff, 0x00];
 //pub const COMMAND_REFERENCE_INPUT_UP: [u8; 2] = [0x00, 0x80];
 //pub const COMMAND_REFERENCE_INPUT_STOP: [u8; 2] = [0x01, 0x80];
 
-use thiserror::Error;
-
 #[derive(Error, Debug)]
 pub enum PositionError {
     #[error("Position out of bound: {0:.2} cm")]
@@ -23,6 +22,10 @@ pub enum PositionError {
     InvalidPosition(String),
 }
 
+/**
+ * Position is represented by an u16 of position ticks.
+ * Each position tick is 1/10 millimeters.
+ */
 #[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Position(u16);
 
@@ -34,6 +37,10 @@ impl Position {
         let pos = Position((cm * 100.0) as u16 - 6200);
         pos.check()?;
         Ok(pos)
+    }
+
+    pub fn to_cm(self) -> f32 {
+        (self.0 as u16 + 6200) as f32 / 100.0
     }
 
     fn check(&self) -> Result<(), PositionError> {
@@ -54,21 +61,28 @@ impl TryFrom<[u8; 2]> for Position {
     }
 }
 
-impl From<&Position> for u16 {
-    fn from(pos: &Position) -> Self {
-        pos.0 as u16 + 6200
-    }
-}
-
 impl Display for Position {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let height: u16 = self.into();
-        write!(f, "{:.2} cm", (height as f32) / 100.0)
+        write!(f, "{:.2} cm", self.to_cm())
     }
 }
 
+/**
+ * Velocity is represented by an i16 of velocity ticks.
+ * Each velocity tick is 1/100 millimeters.
+ */
 #[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Velocity(i16);
+
+impl Velocity {
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn to_cm_per_s(&self) -> f32 {
+        self.0 as f32 / 1000.0
+    }
+}
 
 impl From<[u8; 2]> for Velocity {
     fn from(raw: [u8; 2]) -> Self {
@@ -76,15 +90,8 @@ impl From<[u8; 2]> for Velocity {
     }
 }
 
-impl From<&Velocity> for i16 {
-    fn from(vel: &Velocity) -> Self {
-        vel.0
-    }
-}
-
 impl Display for Velocity {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let velocity: i16 = self.into();
-        write!(f, "{:>6.3} cm/s", (velocity as f32) / 1000.0)
+        write!(f, "{:>6.3} cm/s", self.to_cm_per_s())
     }
 }
