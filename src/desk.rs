@@ -13,7 +13,6 @@ use btleplug::{
     platform::{Manager, Peripheral},
 };
 use futures::{Stream, StreamExt};
-use slog::{debug, info};
 use std::pin::Pin;
 use thiserror::Error;
 
@@ -60,7 +59,7 @@ impl Desk {
         let id = loop {
             let event = events.next().await.expect("No more events");
             if let CentralEvent::DeviceDiscovered(id) = event {
-                debug!(logging::get(), "discovered device: {:?}", id);
+                logging::trace!("Discovered device: {:?}", id);
                 if central.peripheral(&id).await?.address() == address {
                     break id;
                 }
@@ -92,7 +91,7 @@ impl Desk {
         // initial state
         let raw_state = device.read(char_state).await?;
         let (position, velocity) = Self::parse_state(raw_state)?;
-        info!(logging::get(), "initial state"; "position" => %position, "velocity" => %velocity);
+        logging::debug!("Initial state"; "position" => %position, "velocity" => %velocity);
 
         // event subscription
         device.subscribe(char_state).await?;
@@ -108,7 +107,7 @@ impl Desk {
     }
 
     pub async fn move_up(&mut self) -> Result<(), DeskError> {
-        debug!(logging::get(), "command: up");
+        logging::trace!("Sending bluetooth command: up");
         self.device
             .write(&self.char_command, &COMMAND_UP, WriteType::WithoutResponse)
             .await?;
@@ -116,7 +115,7 @@ impl Desk {
     }
 
     pub async fn move_down(&mut self) -> Result<(), DeskError> {
-        debug!(logging::get(), "command: down");
+        logging::trace!("Sending bluetooth command: down");
         self.device
             .write(
                 &self.char_command,
@@ -128,7 +127,7 @@ impl Desk {
     }
 
     pub async fn stop(&mut self) -> Result<(), DeskError> {
-        debug!(logging::get(), "command: stop");
+        logging::trace!("Sending bluetooth command: stop");
         self.device
             .write(
                 &self.char_command,
@@ -144,7 +143,7 @@ impl Desk {
         assert!(event.uuid.to_hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
         let (position, velocity) = Self::parse_state(raw_state)?;
-        info!(logging::get(), "updated state"; "position" => %position, "velocity" => %velocity);
+        logging::debug!("Updated state"; "position" => %position, "velocity" => %velocity);
         self.position = position;
         self.velocity = velocity;
         Ok(())

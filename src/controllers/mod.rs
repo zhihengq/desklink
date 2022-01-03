@@ -6,7 +6,6 @@ use crate::{
     utils::Position,
 };
 use async_trait::async_trait;
-use slog::{error, info};
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;
 use tokio::{
@@ -46,6 +45,10 @@ impl Message {
     }
 }
 
+pub fn create_controller(desk: Desk) -> Box<dyn Controller> {
+    Box::new(overshoot::OvershootController::new(desk))
+}
+
 #[async_trait]
 pub trait Controller: Send {
     fn desk(&mut self) -> &mut Desk;
@@ -53,35 +56,34 @@ pub trait Controller: Send {
     async fn move_down_to(&mut self, position: Position) -> Result<(), ControllerError>;
 
     async fn move_to(&mut self, position: Position) -> Result<(), ControllerError> {
-        info!(logging::get(), "Moving to {}", position);
+        logging::trace!("Start moving to {}", position);
         let current_position = self.desk().position;
         let result = match Ord::cmp(&position, &current_position) {
             Ordering::Equal => Ok(()),
             Ordering::Less => self.move_down_to(position).await,
             Ordering::Greater => self.move_up_to(position).await,
         };
-        result.map_err(|e| {
-            error!(
-                logging::get(),
-                "Error during Controller::move_to({}): {}", position, e
-            );
-            e
-        })
+        match &result {
+            Ok(()) => logging::trace!("Finish moving to {}", position),
+            Err(e) => logging::error!("Error moving to {}: {}", position, e),
+        }
+        result
     }
 
     async fn stop(&mut self) -> Result<(), ControllerError> {
-        info!(logging::get(), "Stopping");
-        self.desk().stop().await.map_err(|e| {
-            let e = e.into();
-            error!(logging::get(), "Error during Controller::stop(): {}", e);
-            e
-        })
+        logging::trace!("Start stopping");
+        let result = self.desk().stop().await.map_err(Into::into);
+        match &result {
+            Ok(()) => logging::trace!("Finish stopping"),
+            Err(e) => logging::error!("Error stopping: {}", e),
+        }
+        result
     }
 
     async fn update(&mut self) -> Result<(), ControllerError> {
         self.desk().update().await.map_err(|e| {
             let e = e.into();
-            error!(logging::get(), "Error during Controller::update(): {}", e);
+            logging::error!("Error updateing: {}", e);
             e
         })
     }
@@ -90,10 +92,7 @@ pub trait Controller: Send {
         &mut self,
         mut inputs: watch::Receiver<Mutex<Option<Message>>>,
     ) -> Result<(), ControllerError> {
-        let mut in_progress: Option<
-            Pin<Box<dyn Future<Output = Result<(), ControllerError>> + Send>>,
-        > = None;
-        let mut self_ptr = SendPtr::new(self);
+        let mut in_progress: InProgress<'_> = None;
 
         loop {
             match in_progress.take() {
@@ -105,27 +104,9 @@ pub trait Controller: Send {
                                 return task.await;
                             } else {
                                 drop(task); // must drop future before borrowing self
-                                let Message { command, complete } = inputs
-                                    .borrow_and_update()
-                                    .lock()
-                                    .expect("Poisoned mutex")
-                                    .take()
-                                    .expect("No message");
-                                match command {
-                                    Command::Stop => {
-                                        let result = self.stop().await;
-                                        complete.send(result)
-                                            .expect("Complete channel closed by receiver");
-                                    }
-                                    Command::MoveTo { target } => {
-                                        in_progress = Some(
-                                            // future must be dropped before borrowing self
-                                            unsafe { self_ptr.as_mut() }.move_to(target)
-                                        );
-                                        complete.send(Ok(()))
-                                            .expect("Complete channel closed by receiver");
-                                    }
-                                }
+                                unsafe {
+                                    process_command(self, &mut inputs, &mut in_progress)
+                                }.await;
                             }
                         }
                     }
@@ -138,32 +119,49 @@ pub trait Controller: Send {
                                 // not more inputs
                                 return Ok(());
                             } else {
-                                let Message {command, complete} = inputs
-                                    .borrow_and_update()
-                                    .lock()
-                                    .expect("Poisoned mutex")
-                                    .take()
-                                    .expect("No message");
-                                match command {
-                                    Command::Stop => {
-                                        let result = self.stop().await;
-                                        complete.send(result)
-                                            .expect("Complete channel closed by receiver");
-                                    }
-                                    Command::MoveTo {target} => {
-                                        in_progress = Some(
-                                            // future must be dropped before borrowing self
-                                            unsafe { self_ptr.as_mut() }.move_to(target)
-                                        );
-                                        complete.send(Ok(()))
-                                            .expect("Complete channel closed by receiver");
-                                    }
-                                }
+                                unsafe {
+                                    process_command(self, &mut inputs, &mut in_progress)
+                                }.await;
                             }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+type InProgress<'a> =
+    Option<Pin<Box<dyn Future<Output = Result<(), ControllerError>> + Send + 'a>>>;
+
+// The future stored in `in_progress` must be dropped before self is borrowed again
+async unsafe fn process_command<'a, C: Controller + ?Sized + 'a>(
+    controller: &mut C,
+    inputs: &mut watch::Receiver<Mutex<Option<Message>>>,
+    in_progress: &mut InProgress<'a>,
+) {
+    let mut self_ptr = SendPtr::new(controller);
+    let Message { command, complete } = inputs
+        .borrow_and_update()
+        .lock()
+        .expect("Poisoned mutex")
+        .take()
+        .expect("No message");
+    match command {
+        Command::Stop => {
+            let result = controller.stop().await;
+            complete
+                .send(result)
+                .expect("Complete channel closed by receiver");
+        }
+        Command::MoveTo { target } => {
+            *in_progress = Some(
+                // future must be dropped before borrowing self
+                unsafe { self_ptr.as_mut() }.move_to(target),
+            );
+            complete
+                .send(Ok(()))
+                .expect("Complete channel closed by receiver");
         }
     }
 }
@@ -178,8 +176,4 @@ impl<T: ?Sized> SendPtr<T> {
     unsafe fn as_mut<'a>(&mut self) -> &'a mut T {
         self.0.as_mut()
     }
-}
-
-pub fn create_controller(desk: Desk) -> Box<dyn Controller + Send> {
-    Box::new(overshoot::OvershootController::new(desk))
 }
