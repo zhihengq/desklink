@@ -6,7 +6,7 @@ use crate::{
     utils::{Position, Velocity},
 };
 use async_trait::async_trait;
-use futures::stream::Stream;
+use futures::Stream;
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;
 use tokio::{
@@ -29,6 +29,16 @@ pub type Complete<T> = oneshot::Receiver<Result<T, ControllerError>>;
 pub type CommandReceiver = watch::Receiver<Mutex<Option<Command>>>;
 pub type CommandSender = watch::Sender<Mutex<Option<Command>>>;
 pub type StateStream = Pin<Box<dyn Stream<Item = (Position, Velocity)> + Send>>;
+
+pub trait CommandSenderExt {
+    fn send_command(&self, command: Command);
+}
+
+impl CommandSenderExt for CommandSender {
+    fn send_command(&self, command: Command) {
+        self.send_replace(Mutex::new(Some(command)));
+    }
+}
 
 pub enum Command {
     GetState {

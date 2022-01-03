@@ -1,14 +1,15 @@
 use anyhow::Result;
 use desk::{
     config::Config,
-    controllers::{self, Command},
+    controllers,
     desk::Desk,
     logging,
-    utils::Position,
+    service::{DeskService, DeskServiceServer},
 };
 use slog::{o, Drain, LevelFilter, Logger};
 use std::sync::Mutex;
 use tokio::sync::watch;
+use tonic::transport::Server;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -26,32 +27,20 @@ async fn main() -> Result<()> {
     // Desk control
     let desk = Desk::find(config.desk.address).await?;
     let mut controller = controllers::create_controller(desk);
-    let (inputs, rx) = watch::channel(Mutex::new(None));
-    let j = tokio::spawn(async move {
+    let (tx, rx) = watch::channel(Default::default());
+    let join_controller = tokio::spawn(async move {
         controller
             .drive(rx)
             .await
             .unwrap_or_else(|e| panic!("{}", e))
     });
 
-    use tokio::io::AsyncBufReadExt;
-    let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
-    loop {
-        let user_input = lines.next_line().await?;
-        if let Some(user_input) = user_input {
-            let (command, complete) = match user_input.trim().parse::<f32>() {
-                Ok(cm) => Command::move_to(Position::from_cm(cm)?),
-                Err(_) => Command::stop(),
-            };
-            inputs.send_replace(Mutex::new(Some(command)));
-            complete.await??;
-        } else {
-            break;
-        }
-    }
+    let svc = DeskServiceServer::new(DeskService::new(tx));
+    Server::builder()
+        .add_service(svc)
+        .serve(config.server.address)
+        .await?;
 
-    drop(inputs);
-    j.await?;
-
+    join_controller.await?;
     Ok(())
 }

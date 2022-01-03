@@ -14,42 +14,28 @@ message State {
 	Velocity velocity = 2;
 }
 
-enum Controller { Overshoot = 0; }
-
-enum DeskErrorCode {
-	Ok = 0;
-	InvalidArgument = 1;
-	BluetoothError = 2;
-}
-
 message GetStateRequest {}
 message GetStateResponse {
 	State state = 1;
 }
 
-message GetStatesRequest {}
-message GetStatesResponse {
+message SubscribeStateRequest {}
+message SubscribeStateResponse {
 	State state = 1;
 }
 
 message StopRequest {}
-message StopResponse {
-	DeskErrorCode exception = 1;
-	optional string message = 2;
-}
+message StopResponse {}
 
-message MoveToRequest {
+message StartMoveRequest {
 	Position target = 1;
-	Controller controller = 2;
 }
-message MoveToResponse {
-	DeskErrorCode exception = 1;
-	optional string message = 2;
-}
+message StartMoveResponse {}
 
 service DeskService {
 	rpc GetState(GetStateRequest) returns (GetStateResponse);
-	rpc GetStates(GetStatesRequest) returns (stream GetStatesResponse);
+	rpc SubscribeState(SubscribeStateRequest)
+	    returns (stream SubscribeStateResponse);
 	rpc Stop(StopRequest) returns (StopResponse);
-	rpc MoveTo(MoveToRequest) returns (MoveToResponse);
+	rpc StartMove(StartMoveRequest) returns (StartMoveResponse);
 }

@@ -2,7 +2,7 @@ use btleplug::api::BDAddr;
 use directories::ProjectDirs;
 use serde::{de::Deserializer, Deserialize};
 use slog::Level;
-use std::{io, path::PathBuf, str::FromStr};
+use std::{io, net::SocketAddr, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 use thiserror::Error;
 
@@ -14,8 +14,12 @@ pub enum ConfigError {
         #[source]
         error: io::Error,
     },
+
     #[error("TOML parsing error")]
     TomlError(#[from] toml::de::Error),
+
+    #[error("Missing config field for {0}")]
+    MissingConfigField(&'static str),
 }
 
 #[derive(Error, Debug)]
@@ -40,6 +44,10 @@ mod args {
         /// Override config file path
         #[structopt(short, long, parse(from_os_str))]
         pub config: Option<PathBuf>,
+
+        /// Server bind address and port
+        #[structopt(short, long)]
+        pub server: Option<SocketAddr>,
     }
 
     fn parse_log_level(name: &str) -> Result<Level, LogLevelError> {
@@ -54,6 +62,7 @@ mod file {
     pub struct Config {
         pub desk: Option<DeskConfig>,
         pub log: Option<LogConfig>,
+        pub server: Option<ServerConfig>,
     }
 
     #[derive(Deserialize)]
@@ -66,6 +75,11 @@ mod file {
         #[serde(default)]
         #[serde(deserialize_with = "deserialize_log_level")]
         pub level: Option<Level>,
+    }
+
+    #[derive(Deserialize)]
+    pub struct ServerConfig {
+        pub address: Option<SocketAddr>,
     }
 
     fn deserialize_log_level<'de, D>(deserializer: D) -> Result<Option<Level>, D::Error>
@@ -85,6 +99,7 @@ mod file {
 pub struct Config {
     pub log: LogConfig,
     pub desk: DeskConfig,
+    pub server: ServerConfig,
 }
 
 #[derive(Debug)]
@@ -95,6 +110,11 @@ pub struct LogConfig {
 #[derive(Debug)]
 pub struct DeskConfig {
     pub address: BDAddr,
+}
+
+#[derive(Debug)]
+pub struct ServerConfig {
+    pub address: SocketAddr,
 }
 
 impl Config {
@@ -137,7 +157,13 @@ impl Config {
                 address: args
                     .desk
                     .or_else(|| toml_config.desk.and_then(|d| d.address))
-                    .expect("No desk MAC address is provided"),
+                    .ok_or(ConfigError::MissingConfigField("desk MAC address"))?,
+            },
+            server: ServerConfig {
+                address: args
+                    .server
+                    .or_else(|| toml_config.server.and_then(|s| s.address))
+                    .ok_or(ConfigError::MissingConfigField("server bind address"))?,
             },
         };
         Ok(config)
