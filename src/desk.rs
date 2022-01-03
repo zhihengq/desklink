@@ -15,6 +15,7 @@ use btleplug::{
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use thiserror::Error;
+use tokio::sync::watch;
 
 #[derive(Error, Debug)]
 pub enum DeskError {
@@ -35,11 +36,13 @@ pub enum DeskError {
 }
 
 pub struct Desk {
+    // bluetooth
     device: Peripheral,
-    pub position: Position,
-    pub velocity: Velocity,
     events: Pin<Box<dyn Stream<Item = ValueNotification> + Send>>,
-    char_command: Characteristic,
+    command_characteristic: Characteristic,
+    // desk state
+    pub state: watch::Receiver<(Position, Velocity)>,
+    state_publisher: watch::Sender<(Position, Velocity)>,
 }
 
 impl Desk {
@@ -88,28 +91,33 @@ impl Desk {
                 uuid: UUID_COMMAND,
             })?;
 
-        // initial state
-        let raw_state = device.read(char_state).await?;
-        let (position, velocity) = Self::parse_state(raw_state)?;
-        logging::debug!("Initial state"; "position" => %position, "velocity" => %velocity);
-
         // event subscription
         device.subscribe(char_state).await?;
         let events = device.notifications().await?;
 
+        // state notification
+        let raw_state = device.read(char_state).await?;
+        let (position, velocity) = Self::parse_state(raw_state)?;
+        logging::debug!("Initial state"; "position" => %position, "velocity" => %velocity);
+        let (tx, rx) = watch::channel((position, velocity));
+
         Ok(Desk {
             device,
-            position,
-            velocity,
             events,
-            char_command: char_command.clone(),
+            command_characteristic: char_command.clone(),
+            state: rx,
+            state_publisher: tx,
         })
     }
 
     pub async fn move_up(&mut self) -> Result<(), DeskError> {
         logging::trace!("Sending bluetooth command: up");
         self.device
-            .write(&self.char_command, &COMMAND_UP, WriteType::WithoutResponse)
+            .write(
+                &self.command_characteristic,
+                &COMMAND_UP,
+                WriteType::WithoutResponse,
+            )
             .await?;
         Ok(())
     }
@@ -118,7 +126,7 @@ impl Desk {
         logging::trace!("Sending bluetooth command: down");
         self.device
             .write(
-                &self.char_command,
+                &self.command_characteristic,
                 &COMMAND_DOWN,
                 WriteType::WithoutResponse,
             )
@@ -130,7 +138,7 @@ impl Desk {
         logging::trace!("Sending bluetooth command: stop");
         self.device
             .write(
-                &self.char_command,
+                &self.command_characteristic,
                 &COMMAND_STOP,
                 WriteType::WithoutResponse,
             )
@@ -138,15 +146,18 @@ impl Desk {
         Ok(())
     }
 
-    pub async fn update(&mut self) -> Result<(), DeskError> {
+    pub async fn update(&mut self) -> Result<(Position, Velocity), DeskError> {
         let event = self.events.next().await.expect("No more events");
         assert!(event.uuid.to_hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
         let (position, velocity) = Self::parse_state(raw_state)?;
         logging::debug!("Updated state"; "position" => %position, "velocity" => %velocity);
-        self.position = position;
-        self.velocity = velocity;
-        Ok(())
+        self.state_publisher.send_replace((position, velocity));
+        Ok((position, velocity))
+    }
+
+    pub fn state(&self) -> (Position, Velocity) {
+        *self.state.borrow()
     }
 
     fn parse_state(raw_state: Vec<u8>) -> Result<(Position, Velocity), DeskError> {

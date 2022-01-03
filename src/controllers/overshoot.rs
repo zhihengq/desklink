@@ -23,14 +23,16 @@ impl Controller for OvershootController {
         &mut self.desk
     }
 
-    async fn move_up_to(&mut self, position: Position) -> Result<(), ControllerError> {
+    async fn move_up_to(&mut self, target: Position) -> Result<(), ControllerError> {
         let mut interval = time::interval(Duration::from_millis(500));
-        while self.desk.position < position {
+        let mut position = self.desk.state().0;
+        while position < target {
             select! {
                 _ = interval.tick() => self.desk.move_up().await?,
                 result = self.desk.update() => {
-                    result?;
-                    if self.desk.velocity.is_zero() {
+                    let (_position, velocity) = result?;
+                    position = _position;
+                    if velocity.is_zero() {
                         return Err(ControllerError::Aborted);
                     }
                 }
@@ -40,14 +42,16 @@ impl Controller for OvershootController {
         Ok(())
     }
 
-    async fn move_down_to(&mut self, position: Position) -> Result<(), ControllerError> {
+    async fn move_down_to(&mut self, target: Position) -> Result<(), ControllerError> {
         let mut interval = time::interval(Duration::from_millis(500));
-        while self.desk.position > position {
+        let mut position = self.desk.state().0;
+        while position > target {
             select! {
                 _ = interval.tick() => self.desk.move_down().await?,
                 result = self.desk.update() => {
-                    result?;
-                    if self.desk.velocity.is_zero() {
+                    let (_position, velocity) = result?;
+                    position = _position;
+                    if velocity.is_zero() {
                         return Err(ControllerError::Aborted);
                     }
                 }

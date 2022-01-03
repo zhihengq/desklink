@@ -3,15 +3,17 @@ mod overshoot;
 use crate::{
     desk::{Desk, DeskError},
     logging,
-    utils::Position,
+    utils::{Position, Velocity},
 };
 use async_trait::async_trait;
+use futures::stream::Stream;
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;
 use tokio::{
     select,
     sync::{oneshot, watch},
 };
+use tokio_stream::wrappers::WatchStream;
 
 #[derive(Error, Debug)]
 pub enum ControllerError {
@@ -22,26 +24,53 @@ pub enum ControllerError {
     Aborted,
 }
 
-#[derive(Debug)]
+type CompletePromise<T> = oneshot::Sender<Result<T, ControllerError>>;
+pub type Complete<T> = oneshot::Receiver<Result<T, ControllerError>>;
+pub type CommandReceiver = watch::Receiver<Mutex<Option<Command>>>;
+pub type CommandSender = watch::Sender<Mutex<Option<Command>>>;
+pub type StateStream = Pin<Box<dyn Stream<Item = (Position, Velocity)> + Send>>;
+
 pub enum Command {
-    Stop,
-    MoveTo { target: Position },
+    GetState {
+        result: CompletePromise<(Position, Velocity)>,
+    },
+    SubscribeState {
+        result: CompletePromise<StateStream>,
+    },
+    Stop {
+        complete: CompletePromise<()>,
+    },
+    MoveTo {
+        target: Position,
+        complete: CompletePromise<()>,
+    },
 }
 
-#[derive(Debug)]
-pub struct Message {
-    command: Command,
-    complete: oneshot::Sender<Result<(), ControllerError>>,
-}
-
-impl Message {
-    pub fn new(command: Command) -> (Message, oneshot::Receiver<Result<(), ControllerError>>) {
+impl Command {
+    pub fn get_state() -> (Command, Complete<(Position, Velocity)>) {
         let (tx, rx) = oneshot::channel();
-        let message = Message {
-            command,
-            complete: tx,
-        };
-        (message, rx)
+        (Command::GetState { result: tx }, rx)
+    }
+
+    pub fn subscribe_state() -> (Command, Complete<StateStream>) {
+        let (tx, rx) = oneshot::channel();
+        (Command::SubscribeState { result: tx }, rx)
+    }
+
+    pub fn stop() -> (Command, Complete<()>) {
+        let (tx, rx) = oneshot::channel();
+        (Command::Stop { complete: tx }, rx)
+    }
+
+    pub fn move_to(target: Position) -> (Command, Complete<()>) {
+        let (tx, rx) = oneshot::channel();
+        (
+            Command::MoveTo {
+                target,
+                complete: tx,
+            },
+            rx,
+        )
     }
 }
 
@@ -57,7 +86,7 @@ pub trait Controller: Send {
 
     async fn move_to(&mut self, position: Position) -> Result<(), ControllerError> {
         logging::trace!("Start moving to {}", position);
-        let current_position = self.desk().position;
+        let current_position = self.desk().state().0;
         let result = match Ord::cmp(&position, &current_position) {
             Ordering::Equal => Ok(()),
             Ordering::Less => self.move_down_to(position).await,
@@ -80,7 +109,7 @@ pub trait Controller: Send {
         result
     }
 
-    async fn update(&mut self) -> Result<(), ControllerError> {
+    async fn update(&mut self) -> Result<(Position, Velocity), ControllerError> {
         self.desk().update().await.map_err(|e| {
             let e = e.into();
             logging::error!("Error updateing: {}", e);
@@ -88,10 +117,7 @@ pub trait Controller: Send {
         })
     }
 
-    async fn drive(
-        &mut self,
-        mut inputs: watch::Receiver<Mutex<Option<Message>>>,
-    ) -> Result<(), ControllerError> {
+    async fn drive(&mut self, mut inputs: CommandReceiver) -> Result<(), ControllerError> {
         let mut in_progress: InProgress<'_> = None;
 
         loop {
@@ -113,7 +139,9 @@ pub trait Controller: Send {
                 }
                 None => {
                     select! {
-                        result = self.update() => result?,
+                        result = self.update() => {
+                            result?;
+                        }
                         result = inputs.changed() => {
                             if result.is_err() {
                                 // not more inputs
@@ -137,31 +165,35 @@ type InProgress<'a> =
 // The future stored in `in_progress` must be dropped before self is borrowed again
 async unsafe fn process_command<'a, C: Controller + ?Sized + 'a>(
     controller: &mut C,
-    inputs: &mut watch::Receiver<Mutex<Option<Message>>>,
+    inputs: &mut CommandReceiver,
     in_progress: &mut InProgress<'a>,
 ) {
     let mut self_ptr = SendPtr::new(controller);
-    let Message { command, complete } = inputs
+    let command = inputs
         .borrow_and_update()
         .lock()
         .expect("Poisoned mutex")
         .take()
         .expect("No message");
     match command {
-        Command::Stop => {
-            let result = controller.stop().await;
-            complete
-                .send(result)
-                .expect("Complete channel closed by receiver");
+        Command::GetState { result } => {
+            let state = controller.desk().state();
+            result.send(Ok(state)).unwrap_or(());
         }
-        Command::MoveTo { target } => {
+        Command::SubscribeState { result } => {
+            let stream = Box::pin(WatchStream::new(controller.desk().state.clone()));
+            result.send(Ok(stream)).unwrap_or(());
+        }
+        Command::Stop { complete } => {
+            let result = controller.stop().await;
+            complete.send(result).unwrap_or(());
+        }
+        Command::MoveTo { target, complete } => {
             *in_progress = Some(
                 // future must be dropped before borrowing self
                 unsafe { self_ptr.as_mut() }.move_to(target),
             );
-            complete
-                .send(Ok(()))
-                .expect("Complete channel closed by receiver");
+            complete.send(Ok(())).unwrap_or(());
         }
     }
 }

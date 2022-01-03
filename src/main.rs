@@ -1,7 +1,7 @@
 use anyhow::Result;
 use desk::{
     config::Config,
-    controllers::{self, Command, Message},
+    controllers::{self, Command},
     desk::Desk,
     logging,
     utils::Position,
@@ -39,16 +39,11 @@ async fn main() -> Result<()> {
     loop {
         let user_input = lines.next_line().await?;
         if let Some(user_input) = user_input {
-            let command = match user_input.trim().parse::<f32>() {
-                Ok(cm) => Command::MoveTo {
-                    target: Position::from_cm(cm)?,
-                },
-                Err(_) => Command::Stop,
+            let (command, complete) = match user_input.trim().parse::<f32>() {
+                Ok(cm) => Command::move_to(Position::from_cm(cm)?),
+                Err(_) => Command::stop(),
             };
-            let (m, complete) = Message::new(command);
-            inputs
-                .send(Mutex::new(Some(m)))
-                .expect("Complete channel closed by sender");
+            inputs.send_replace(Mutex::new(Some(command)));
             complete.await??;
         } else {
             break;

@@ -321,6 +321,7 @@ dependencies = [
  "structopt",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "toml",
  "tonic",
  "tonic-build",

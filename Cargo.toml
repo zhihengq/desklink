@@ -19,6 +19,7 @@ thiserror = "*"
 toml = "*"
 tonic = "*"
 tokio = {version="*", features=["macros", "time"]}
+tokio-stream = "*"
 uuid = "*"
 
 [build-dependencies]
