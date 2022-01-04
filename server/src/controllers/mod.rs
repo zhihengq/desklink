@@ -2,10 +2,10 @@ mod overshoot;
 
 use crate::{
     desk::{Desk, DeskError},
-    logging,
     utils::{Position, Velocity},
 };
 use async_trait::async_trait;
+use desk_common::{error, trace};
 use futures::Stream;
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;
@@ -95,7 +95,7 @@ pub trait Controller: Send {
     async fn move_down_to(&mut self, position: Position) -> Result<(), ControllerError>;
 
     async fn move_to(&mut self, position: Position) -> Result<(), ControllerError> {
-        logging::trace!("Start moving to {}", position);
+        trace!("Start moving to {}", position);
         let current_position = self.desk().state().0;
         let result = match Ord::cmp(&position, &current_position) {
             Ordering::Equal => Ok(()),
@@ -103,18 +103,18 @@ pub trait Controller: Send {
             Ordering::Greater => self.move_up_to(position).await,
         };
         match &result {
-            Ok(()) => logging::trace!("Finish moving to {}", position),
-            Err(e) => logging::error!("Error moving to {}: {}", position, e),
+            Ok(()) => trace!("Finish moving to {}", position),
+            Err(e) => error!("Error moving to {}: {}", position, e),
         }
         result
     }
 
     async fn stop(&mut self) -> Result<(), ControllerError> {
-        logging::trace!("Start stopping");
+        trace!("Start stopping");
         let result = self.desk().stop().await.map_err(Into::into);
         match &result {
-            Ok(()) => logging::trace!("Finish stopping"),
-            Err(e) => logging::error!("Error stopping: {}", e),
+            Ok(()) => trace!("Finish stopping"),
+            Err(e) => error!("Error stopping: {}", e),
         }
         result
     }
@@ -122,7 +122,7 @@ pub trait Controller: Send {
     async fn update(&mut self) -> Result<(Position, Velocity), ControllerError> {
         self.desk().update().await.map_err(|e| {
             let e = e.into();
-            logging::error!("Error updateing: {}", e);
+            error!("Error updateing: {}", e);
             e
         })
     }

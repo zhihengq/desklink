@@ -1,0 +1,22 @@
+[package]
+name = "desk-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+desk-common = { path = "../common" }
+anyhow = "*"
+async-trait = "*"
+btleplug = {version="*", features=["serde"]}
+directories = "*"
+futures = "*"
+serde = "*"
+slog = "*"
+slog-term = "*"
+structopt = "*"
+thiserror = "*"
+toml = "*"
+tonic = "*"
+tokio = {version="*", features=["macros"]}
+tokio-stream = "*"
+uuid = "*"

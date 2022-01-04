@@ -1,26 +1,6 @@
-[package]
-name = "desk"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-anyhow = "*"
-async-trait = "*"
-btleplug = {version="*", features=["serde"]}
-directories = "*"
-futures = "*"
-once_cell = "*"
-prost = "*"
-serde = "*"
-slog = "*"
-slog-term = "*"
-structopt = "*"
-thiserror = "*"
-toml = "*"
-tonic = "*"
-tokio = {version="*", features=["macros", "time"]}
-tokio-stream = "*"
-uuid = "*"
-
-[build-dependencies]
-tonic-build = "*"
+[workspace]
+members = [
+    "server",
+    "client",
+    "common",
+]

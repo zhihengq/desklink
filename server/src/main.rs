@@ -1,9 +1,9 @@
 use anyhow::Result;
-use desk::{
+use desk_common::logging;
+use desk_server::{
     config::Config,
     controllers,
     desk::Desk,
-    logging,
     service::{DeskService, DeskServiceServer},
 };
 use slog::{o, Drain, LevelFilter, Logger};

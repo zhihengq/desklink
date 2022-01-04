@@ -1,9 +1,6 @@
-use crate::{
-    logging,
-    utils::{
-        Position, PositionError, Velocity, COMMAND_DOWN, COMMAND_STOP, COMMAND_UP, UUID_COMMAND,
-        UUID_STATE,
-    },
+use crate::utils::{
+    Position, PositionError, Velocity, COMMAND_DOWN, COMMAND_STOP, COMMAND_UP, UUID_COMMAND,
+    UUID_STATE,
 };
 use btleplug::{
     api::{
@@ -12,6 +9,7 @@ use btleplug::{
     },
     platform::{Manager, Peripheral},
 };
+use desk_common::{debug, error, trace};
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use thiserror::Error;
@@ -62,7 +60,7 @@ impl Desk {
         let id = loop {
             let event = events.next().await.expect("No more events");
             if let CentralEvent::DeviceDiscovered(id) = event {
-                logging::trace!("Discovered device: {:?}", id);
+                trace!("Discovered device: {:?}", id);
                 if central.peripheral(&id).await?.address() == address {
                     break id;
                 }
@@ -98,7 +96,7 @@ impl Desk {
         // state notification
         let raw_state = device.read(char_state).await?;
         let (position, velocity) = Self::parse_state(raw_state)?;
-        logging::debug!("Initial state"; "position" => %position, "velocity" => %velocity);
+        debug!("Initial state"; "position" => %position, "velocity" => %velocity);
         let (tx, rx) = watch::channel((position, velocity));
 
         Ok(Desk {
@@ -111,7 +109,7 @@ impl Desk {
     }
 
     pub async fn move_up(&mut self) -> Result<(), DeskError> {
-        logging::trace!("Sending bluetooth command: up");
+        trace!("Sending bluetooth command: up");
         self.device
             .write(
                 &self.command_characteristic,
@@ -123,7 +121,7 @@ impl Desk {
     }
 
     pub async fn move_down(&mut self) -> Result<(), DeskError> {
-        logging::trace!("Sending bluetooth command: down");
+        trace!("Sending bluetooth command: down");
         self.device
             .write(
                 &self.command_characteristic,
@@ -135,7 +133,7 @@ impl Desk {
     }
 
     pub async fn stop(&mut self) -> Result<(), DeskError> {
-        logging::trace!("Sending bluetooth command: stop");
+        trace!("Sending bluetooth command: stop");
         self.device
             .write(
                 &self.command_characteristic,
@@ -151,7 +149,7 @@ impl Desk {
         assert!(event.uuid.to_hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
         let (position, velocity) = Self::parse_state(raw_state)?;
-        logging::debug!("Updated state"; "position" => %position, "velocity" => %velocity);
+        debug!("Updated state"; "position" => %position, "velocity" => %velocity);
         self.state_publisher.send_replace((position, velocity));
         Ok((position, velocity))
     }

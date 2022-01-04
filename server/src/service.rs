@@ -1,11 +1,11 @@
 use crate::{
     controllers::{Command, CommandSender, CommandSenderExt, ControllerError},
-    logging,
     utils::{Position, PositionError, Velocity},
 };
 use async_trait::async_trait;
-pub use desk_service::desk_service_server::DeskServiceServer;
-use desk_service::{
+use desk_common::info;
+pub use desk_common::rpc::desk_service_server::DeskServiceServer;
+use desk_common::rpc::{
     desk_service_server::DeskService as DeskServiceTrait, GetStateRequest, GetStateResponse,
     StartMoveRequest, StartMoveResponse, State, StopRequest, StopResponse, SubscribeStateRequest,
     SubscribeStateResponse,
@@ -13,10 +13,6 @@ use desk_service::{
 use futures::{Stream, StreamExt};
 use std::{convert::Infallible, pin::Pin};
 use tonic::{Request, Response, Status};
-
-mod desk_service {
-    tonic::include_proto!("desk_service");
-}
 
 pub struct DeskService {
     controller: CommandSender,
@@ -37,19 +33,17 @@ impl From<ControllerError> for Status {
     }
 }
 
-impl From<(Position, Velocity)> for State {
-    fn from(state: (Position, Velocity)) -> State {
-        let (position, velocity) = state;
-        State {
-            position: desk_service::Position {
-                value: position.to_cm(),
-            }
-            .into(),
-            velocity: desk_service::Velocity {
-                value: velocity.to_cm_per_s(),
-            }
-            .into(),
+fn to_state(state: (Position, Velocity)) -> State {
+    let (position, velocity) = state;
+    State {
+        position: desk_common::rpc::Position {
+            value: position.to_cm(),
         }
+        .into(),
+        velocity: desk_common::rpc::Velocity {
+            value: velocity.to_cm_per_s(),
+        }
+        .into(),
     }
 }
 
@@ -69,12 +63,12 @@ impl DeskServiceTrait for DeskService {
             Ok(Err(e)) => Err(e.into()),
             Ok(Ok(state)) => {
                 let response = GetStateResponse {
-                    state: Some(state.into()),
+                    state: Some(to_state(state)),
                 };
                 Ok(Response::new(response))
             }
         };
-        logging::info!("Received GetState request"; "request" => ?request, "response" => ?response);
+        info!("Received GetState request"; "request" => ?request, "response" => ?response);
         response
     }
 
@@ -90,7 +84,7 @@ impl DeskServiceTrait for DeskService {
             Ok(Ok(stream)) => {
                 let response_stream = stream.map(|state| {
                     Ok(SubscribeStateResponse {
-                        state: Some(state.into()),
+                        state: Some(to_state(state)),
                     })
                 });
                 Ok(Response::new(
@@ -98,7 +92,7 @@ impl DeskServiceTrait for DeskService {
                 ))
             }
         };
-        logging::info!(
+        info!(
             "Received GetState request";
             "request" => ?request,
             "response" => match &response {
@@ -118,7 +112,7 @@ impl DeskServiceTrait for DeskService {
             Ok(Err(e)) => Err(e.into()),
             Ok(Ok(())) => Ok(Response::new(StopResponse {})),
         };
-        logging::info!("Received Stop request"; "request" => ?request, "response" => ?response);
+        info!("Received Stop request"; "request" => ?request, "response" => ?response);
         response
     }
 
@@ -126,10 +120,10 @@ impl DeskServiceTrait for DeskService {
         &self,
         request: Request<StartMoveRequest>,
     ) -> Result<Response<StartMoveResponse>, Status> {
-        logging::info!("Received StartMove request"; "request" => ?request);
+        info!("Received StartMove request"; "request" => ?request);
         let target = request.get_ref().target.as_ref().ok_or(()).or_else(|()| {
             let response = Err(Status::invalid_argument("No target position"));
-            logging::info!("Received StartMove request"; "request" => ?request, "response" => ?response);
+            info!("Received StartMove request"; "request" => ?request, "response" => ?response);
             response
         })?;
 
@@ -152,7 +146,7 @@ impl DeskServiceTrait for DeskService {
             Ok(Err(e)) => Err(e.into()),
             Ok(Ok(())) => Ok(Response::new(StartMoveResponse {})),
         };
-        logging::info!("Received StartMove request"; "request" => ?request, "response" => ?response);
+        info!("Received StartMove request"; "request" => ?request, "response" => ?response);
         response
     }
 }
