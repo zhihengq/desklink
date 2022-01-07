@@ -1,34 +1,23 @@
 syntax = "proto3";
 package desk_service;
 
-message Position {
-	float value = 1;
-}
-
-message Velocity {
-	float value = 1;
-}
-
-message State {
-	Position position = 1;
-	Velocity velocity = 2;
-}
-
 message GetStateRequest {}
 message GetStateResponse {
-	State state = 1;
+	float position = 1;
+	float velocity = 2;
 }
 
 message SubscribeStateRequest {}
 message SubscribeStateResponse {
-	State state = 1;
+	float position = 1;
+	float velocity = 2;
 }
 
 message StopRequest {}
 message StopResponse {}
 
 message StartMoveRequest {
-	Position target = 1;
+	float target = 1;
 }
 message StartMoveResponse {}
 

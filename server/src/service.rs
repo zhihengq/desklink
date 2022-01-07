@@ -1,13 +1,13 @@
 use crate::{
     controllers::{Command, CommandSender, CommandSenderExt, ControllerError},
-    utils::{Position, PositionError, Velocity},
+    utils::{Position, PositionError},
 };
 use async_trait::async_trait;
 use desk_common::info;
 pub use desk_common::rpc::desk_service_server::DeskServiceServer;
 use desk_common::rpc::{
     desk_service_server::DeskService as DeskServiceTrait, GetStateRequest, GetStateResponse,
-    StartMoveRequest, StartMoveResponse, State, StopRequest, StopResponse, SubscribeStateRequest,
+    StartMoveRequest, StartMoveResponse, StopRequest, StopResponse, SubscribeStateRequest,
     SubscribeStateResponse,
 };
 use futures::{Stream, StreamExt};
@@ -33,20 +33,6 @@ impl From<ControllerError> for Status {
     }
 }
 
-fn to_state(state: (Position, Velocity)) -> State {
-    let (position, velocity) = state;
-    State {
-        position: desk_common::rpc::Position {
-            value: position.to_cm(),
-        }
-        .into(),
-        velocity: desk_common::rpc::Velocity {
-            value: velocity.to_cm_per_s(),
-        }
-        .into(),
-    }
-}
-
 #[async_trait]
 impl DeskServiceTrait for DeskService {
     type SubscribeStateStream =
@@ -61,9 +47,10 @@ impl DeskServiceTrait for DeskService {
         let response = match result.await {
             Err(_) => Err(Status::unavailable("Controller busy")),
             Ok(Err(e)) => Err(e.into()),
-            Ok(Ok(state)) => {
+            Ok(Ok((position, velocity))) => {
                 let response = GetStateResponse {
-                    state: Some(to_state(state)),
+                    position: position.to_cm(),
+                    velocity: velocity.to_cm_per_s(),
                 };
                 Ok(Response::new(response))
             }
@@ -82,9 +69,10 @@ impl DeskServiceTrait for DeskService {
             Err(_) => Err(Status::unavailable("Controller busy")),
             Ok(Err(e)) => Err(e.into()),
             Ok(Ok(stream)) => {
-                let response_stream = stream.map(|state| {
+                let response_stream = stream.map(|(position, velocity)| {
                     Ok(SubscribeStateResponse {
-                        state: Some(to_state(state)),
+                        position: position.to_cm(),
+                        velocity: velocity.to_cm_per_s(),
                     })
                 });
                 Ok(Response::new(
@@ -120,14 +108,7 @@ impl DeskServiceTrait for DeskService {
         &self,
         request: Request<StartMoveRequest>,
     ) -> Result<Response<StartMoveResponse>, Status> {
-        info!("Received StartMove request"; "request" => ?request);
-        let target = request.get_ref().target.as_ref().ok_or(()).or_else(|()| {
-            let response = Err(Status::invalid_argument("No target position"));
-            info!("Received StartMove request"; "request" => ?request, "response" => ?response);
-            response
-        })?;
-
-        let target = match Position::from_cm(target.value) {
+        let target = match Position::from_cm(request.get_ref().target) {
             Ok(position) => position,
             Err(PositionError::OutOfBound(p)) => {
                 return Err(Status::out_of_range(format!(
