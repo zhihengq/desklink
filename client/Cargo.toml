@@ -2,3 +2,11 @@
 name = "desk-client"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+desk-common = { path = "../common" }
+anyhow = "*"
+slog = "*"
+slog-term = "*"
+tokio = {version="*", features=["macros"]}
+tonic = "*"

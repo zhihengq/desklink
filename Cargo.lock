@@ -307,6 +307,14 @@ dependencies = [
 [[package]]
 name = "desk-client"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "desk-common",
+ "slog",
+ "slog-term",
+ "tokio",
+ "tonic",
+]
 
 [[package]]
 name = "desk-common"
@@ -315,7 +323,6 @@ dependencies = [
  "once_cell",
  "prost",
  "slog",
- "slog-term",
  "tonic",
  "tonic-build",
 ]

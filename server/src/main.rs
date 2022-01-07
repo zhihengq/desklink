@@ -19,12 +19,14 @@ async fn main() -> Result<()> {
 
     // Logger
     let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build();
+    let drain = slog_term::FullFormat::new(decorator)
+        .use_original_order()
+        .build();
     let drain = LevelFilter::new(drain, config.log.level);
     let root = Logger::root(Mutex::new(drain).fuse(), o!());
     logging::set(root);
 
-    // Desk control
+    // Desk controller driver
     let desk = Desk::find(config.desk.address).await?;
     let mut controller = controllers::create_controller(desk);
     let (tx, rx) = watch::channel(Default::default());
@@ -35,6 +37,7 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|e| panic!("{}", e))
     });
 
+    // RPC server
     let svc = DeskServiceServer::new(DeskService::new(tx));
     Server::builder()
         .add_service(svc)

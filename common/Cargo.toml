@@ -7,7 +7,6 @@ edition = "2021"
 once_cell = "*"
 prost = "*"
 slog = "*"
-slog-term = "*"
 tonic = "*"
 
 [build-dependencies]
