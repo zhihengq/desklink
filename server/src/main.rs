@@ -1,11 +1,14 @@
 use anyhow::Result;
-use desk_common::logging;
+use desk_common::{info, logging};
 use desk_server::{
     config::Config,
     controllers,
     desk::Desk,
     service::{DeskService, DeskServiceServer},
 };
+use futures::{FutureExt, StreamExt};
+use signal_hook::consts::signal;
+use signal_hook_tokio::Signals;
 use slog::{o, Drain, LevelFilter, Logger};
 use std::sync::Mutex;
 use tokio::sync::watch;
@@ -15,6 +18,7 @@ use tonic::transport::Server;
 async fn main() -> Result<()> {
     // Config
     let config = Config::get()?;
+    #[cfg(debug_assertions)]
     println!("{:#?}", config);
 
     // Logger
@@ -37,12 +41,27 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|e| panic!("{}", e))
     });
 
+    // Shutdown signal
+    let mut signals = Signals::new([signal::SIGINT, signal::SIGTERM])?;
+    let shutdown = signals.next().map(|sig| {
+        info!(
+            "{} received, finishing existing client connections",
+            match sig.unwrap() {
+                signal::SIGINT => "SIGINT",
+                signal::SIGTERM => "SIGTERM",
+                _ => unreachable!(),
+            }
+        );
+    });
+
     // RPC server
+    info!("Starting server...");
     let svc = DeskServiceServer::new(DeskService::new(tx));
     Server::builder()
         .add_service(svc)
-        .serve(config.server.address)
+        .serve_with_shutdown(config.server.address, shutdown)
         .await?;
+    info!("Shutting down server...");
 
     join_controller.await?;
     Ok(())
