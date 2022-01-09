@@ -23,7 +23,7 @@ pub enum ConfigError {
     MissingConfigField(&'static str),
 
     #[error("Preset `{0}` not found")]
-    ProfileNotFound(String),
+    PresetNotFound(String),
 }
 
 mod args {
@@ -43,8 +43,28 @@ mod args {
         #[structopt(short, long)]
         pub server: Option<Endpoint>,
 
-        /// Target
-        pub target: String,
+        /// Command
+        #[structopt(subcommand)]
+        pub command: Command,
+    }
+
+    #[derive(StructOpt)]
+    pub enum Command {
+        /// Check the current position and velocity of the desk
+        Status,
+
+        /// Stop desk motion and cancel in-progress commands
+        Stop,
+
+        /// Move desk to target position
+        To {
+            /// Target position in cm, or a preset name
+            target: String,
+
+            /// Monitor desk position and wait until target is reached
+            #[structopt(short, long)]
+            wait: bool,
+        },
     }
 }
 
@@ -84,7 +104,7 @@ mod file {
 pub struct Config {
     pub log: LogConfig,
     pub client: ClientConfig,
-    pub target: f32,
+    pub command: Command,
 }
 
 #[derive(Debug)]
@@ -95,6 +115,13 @@ pub struct LogConfig {
 #[derive(Debug)]
 pub struct ClientConfig {
     pub server: Endpoint,
+}
+
+#[derive(Debug)]
+pub enum Command {
+    Status,
+    Stop,
+    To { target: f32, wait: bool },
 }
 
 impl Config {
@@ -139,13 +166,22 @@ impl Config {
                     .or_else(|| toml_config.client.and_then(|c| c.server))
                     .ok_or(ConfigError::MissingConfigField("server address"))?,
             },
-            target: args.target.parse::<f32>().or_else(|_| {
-                toml_config
-                    .presets
-                    .get(&args.target)
-                    .copied()
-                    .ok_or(ConfigError::ProfileNotFound(args.target))
-            })?,
+            command: match args.command {
+                args::Command::Status => Command::Status,
+                args::Command::Stop => Command::Stop,
+                args::Command::To { target, wait } => Command::To {
+                    target: {
+                        target.parse::<f32>().or_else(|_| {
+                            toml_config
+                                .presets
+                                .get(&target)
+                                .copied()
+                                .ok_or(ConfigError::PresetNotFound(target))
+                        })?
+                    },
+                    wait,
+                },
+            },
         };
         Ok(config)
     }
