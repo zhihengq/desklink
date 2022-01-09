@@ -3,9 +3,9 @@ use crate::{
     utils::{Position, PositionError},
 };
 use async_trait::async_trait;
-use desk_common::info;
-pub use desk_common::rpc::desk_service_server::DeskServiceServer;
-use desk_common::rpc::{
+use desklink_common::info;
+pub use desklink_common::rpc::desk_service_server::DeskServiceServer;
+use desklink_common::rpc::{
     desk_service_server::DeskService as DeskServiceTrait, GetStateRequest, GetStateResponse,
     StartMoveRequest, StartMoveResponse, StopRequest, StopResponse, SubscribeStateRequest,
     SubscribeStateResponse,

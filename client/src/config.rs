@@ -1,4 +1,4 @@
-use desk_common::logging;
+use desklink_common::{logging, PROJECT_NAME};
 use directories::ProjectDirs;
 use serde::{de::Deserializer, Deserialize};
 use slog::Level;
@@ -103,7 +103,7 @@ impl Config {
         let (config_path, is_explicit) = match args.config {
             Some(path) => (Some(path), true),
             None => {
-                let dirs = ProjectDirs::from("", "", "idasen-desk-controller");
+                let dirs = ProjectDirs::from("", "", PROJECT_NAME);
                 let path = dirs.map(|dirs| dirs.config_dir().join("client.toml"));
                 (path, false)
             }

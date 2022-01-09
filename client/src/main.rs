@@ -1,6 +1,6 @@
 use anyhow::Result;
 use config::Config;
-use desk_common::{
+use desklink_common::{
     info, logging,
     rpc::{desk_service_client::DeskServiceClient, SubscribeStateRequest},
 };

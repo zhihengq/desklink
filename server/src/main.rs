@@ -1,6 +1,6 @@
 use anyhow::Result;
-use desk_common::{info, logging};
-use desk_server::{
+use desklink_common::{info, logging};
+use desklink_server::{
     config::Config,
     controllers,
     desk::Desk,

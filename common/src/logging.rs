@@ -42,7 +42,7 @@ macro_rules! create_macro {
         #[allow(unused)]
         macro_rules! $logf {
             ($dollar format:literal $dollar($dollar additional:tt)*) => {
-                slog::$logf!(desk_common::logging::get(), concat!("[{}:{}] ", $dollar format), file!(), line!()
+                slog::$logf!(desklink_common::logging::get(), concat!("[{}:{}] ", $dollar format), file!(), line!()
                     $dollar($dollar additional)*)
             };
         }

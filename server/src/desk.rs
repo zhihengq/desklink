@@ -9,7 +9,7 @@ use btleplug::{
     },
     platform::{Manager, Peripheral},
 };
-use desk_common::{debug, error, trace};
+use desklink_common::{debug, error, trace};
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use thiserror::Error;

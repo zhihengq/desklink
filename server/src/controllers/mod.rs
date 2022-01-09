@@ -5,7 +5,7 @@ use crate::{
     utils::{Position, Velocity},
 };
 use async_trait::async_trait;
-use desk_common::{error, trace};
+use desklink_common::{error, trace};
 use futures::Stream;
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;

@@ -1,3 +1,5 @@
+pub const PROJECT_NAME: &str = "desklink";
+
 pub mod rpc {
     tonic::include_proto!("desk_service");
 }

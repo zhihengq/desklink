@@ -305,11 +305,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "desk-client"
+name = "desklink-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "desk-common",
+ "desklink-common",
  "directories",
  "serde",
  "slog",
@@ -322,7 +322,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "desk-common"
+name = "desklink-common"
 version = "0.1.0"
 dependencies = [
  "once_cell",
@@ -335,13 +335,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "desk-server"
+name = "desklink-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "btleplug",
- "desk-common",
+ "desklink-common",
  "directories",
  "futures",
  "serde",
