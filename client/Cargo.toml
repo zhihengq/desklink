@@ -6,7 +6,12 @@ edition = "2021"
 [dependencies]
 desk-common = { path = "../common" }
 anyhow = "*"
+directories = "*"
+serde = "*"
 slog = "*"
 slog-term = "*"
-tokio = {version="*", features=["macros"]}
+structopt = "*"
+thiserror = "*"
+toml = "*"
+tokio = { version = "*", features = ["macros"] }
 tonic = "*"

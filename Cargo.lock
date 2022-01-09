@@ -310,9 +310,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "desk-common",
+ "directories",
+ "serde",
  "slog",
  "slog-term",
+ "structopt",
+ "thiserror",
  "tokio",
+ "toml",
  "tonic",
 ]
 
@@ -322,7 +327,9 @@ version = "0.1.0"
 dependencies = [
  "once_cell",
  "prost",
+ "serde",
  "slog",
+ "thiserror",
  "tonic",
  "tonic-build",
 ]

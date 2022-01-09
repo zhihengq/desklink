@@ -6,7 +6,9 @@ edition = "2021"
 [dependencies]
 once_cell = "*"
 prost = "*"
+serde = "*"
 slog = "*"
+thiserror = "*"
 tonic = "*"
 
 [build-dependencies]

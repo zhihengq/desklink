@@ -81,7 +81,7 @@ impl DeskServiceTrait for DeskService {
             }
         };
         info!(
-            "Received GetState request";
+            "Received SubscribeState request";
             "request" => ?request,
             "response" => match &response {
                 Ok(_) => "Ok(...)".to_owned(),

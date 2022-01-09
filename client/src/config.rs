@@ -1,11 +1,11 @@
-use btleplug::api::BDAddr;
 use desk_common::logging;
 use directories::ProjectDirs;
-use serde::Deserialize;
+use serde::{de::Deserializer, Deserialize};
 use slog::Level;
-use std::{io, net::SocketAddr, path::PathBuf};
+use std::{collections::HashMap, io, path::PathBuf, str::FromStr};
 use structopt::StructOpt;
 use thiserror::Error;
+use tonic::transport::Endpoint;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -21,6 +21,9 @@ pub enum ConfigError {
 
     #[error("Missing config field for {0}")]
     MissingConfigField(&'static str),
+
+    #[error("Preset `{0}` not found")]
+    ProfileNotFound(String),
 }
 
 mod args {
@@ -32,17 +35,16 @@ mod args {
         #[structopt(short = "v", long, parse(try_from_str = logging::parse_log_level))]
         pub log_level: Option<Level>,
 
-        /// Desk MAC address
-        #[structopt(short, long)]
-        pub desk: Option<BDAddr>,
-
         /// Override config file path
         #[structopt(short, long, parse(from_os_str))]
         pub config: Option<PathBuf>,
 
-        /// Server bind address and port
+        /// Server address and port
         #[structopt(short, long)]
-        pub server: Option<SocketAddr>,
+        pub server: Option<Endpoint>,
+
+        /// Target
+        pub target: String,
     }
 }
 
@@ -51,14 +53,9 @@ mod file {
 
     #[derive(Deserialize)]
     pub struct Config {
-        pub desk: Option<DeskConfig>,
         pub log: Option<LogConfig>,
-        pub server: Option<ServerConfig>,
-    }
-
-    #[derive(Deserialize)]
-    pub struct DeskConfig {
-        pub address: Option<BDAddr>,
+        pub client: Option<ClientConfig>,
+        pub presets: HashMap<String, f32>,
     }
 
     #[derive(Deserialize)]
@@ -68,16 +65,26 @@ mod file {
     }
 
     #[derive(Deserialize)]
-    pub struct ServerConfig {
-        pub address: Option<SocketAddr>,
+    pub struct ClientConfig {
+        #[serde(deserialize_with = "deserialize_endpoint")]
+        pub server: Option<Endpoint>,
+    }
+
+    pub fn deserialize_endpoint<'de, D>(deserializer: D) -> Result<Option<Endpoint>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let name: Option<String> = Option::deserialize(deserializer)?;
+        name.map(|name| Endpoint::from_str(&name).map_err(serde::de::Error::custom))
+            .transpose()
     }
 }
 
 #[derive(Debug)]
 pub struct Config {
     pub log: LogConfig,
-    pub desk: DeskConfig,
-    pub server: ServerConfig,
+    pub client: ClientConfig,
+    pub target: f32,
 }
 
 #[derive(Debug)]
@@ -86,13 +93,8 @@ pub struct LogConfig {
 }
 
 #[derive(Debug)]
-pub struct DeskConfig {
-    pub address: BDAddr,
-}
-
-#[derive(Debug)]
-pub struct ServerConfig {
-    pub address: SocketAddr,
+pub struct ClientConfig {
+    pub server: Endpoint,
 }
 
 impl Config {
@@ -102,7 +104,7 @@ impl Config {
             Some(path) => (Some(path), true),
             None => {
                 let dirs = ProjectDirs::from("", "", "idasen-desk-controller");
-                let path = dirs.map(|dirs| dirs.config_dir().join("server.toml"));
+                let path = dirs.map(|dirs| dirs.config_dir().join("client.toml"));
                 (path, false)
             }
         };
@@ -131,18 +133,19 @@ impl Config {
                     .or_else(|| toml_config.log.and_then(|l| l.level))
                     .unwrap_or(Level::Info),
             },
-            desk: DeskConfig {
-                address: args
-                    .desk
-                    .or_else(|| toml_config.desk.and_then(|d| d.address))
-                    .ok_or(ConfigError::MissingConfigField("desk MAC address"))?,
-            },
-            server: ServerConfig {
-                address: args
+            client: ClientConfig {
+                server: args
                     .server
-                    .or_else(|| toml_config.server.and_then(|s| s.address))
-                    .ok_or(ConfigError::MissingConfigField("server bind address"))?,
+                    .or_else(|| toml_config.client.and_then(|c| c.server))
+                    .ok_or(ConfigError::MissingConfigField("server address"))?,
             },
+            target: args.target.parse::<f32>().or_else(|_| {
+                toml_config
+                    .presets
+                    .get(&args.target)
+                    .copied()
+                    .ok_or(ConfigError::ProfileNotFound(args.target))
+            })?,
         };
         Ok(config)
     }
