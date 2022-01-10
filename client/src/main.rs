@@ -13,7 +13,9 @@ async fn main() -> Result<()> {
 
     // Logger
     let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build();
+    let drain = slog_term::FullFormat::new(decorator)
+        .use_original_order()
+        .build();
     let drain = LevelFilter::new(drain, config.log.level);
     let root = Logger::root(Mutex::new(drain).fuse(), o!());
     logging::set(root);
