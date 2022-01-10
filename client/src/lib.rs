@@ -1,5 +1,6 @@
 use anyhow::Result;
 use config::Command;
+use subcommands::{status, stop, to};
 
 pub mod config;
 mod subcommands;
@@ -10,9 +11,9 @@ type Client = desklink_common::rpc::desk_service_client::DeskServiceClient<
 
 pub async fn run(client: Client, command: Command) -> Result<()> {
     match command {
-        Command::Status => subcommands::status::run(client).await?,
-        Command::Stop => subcommands::stop::run(client).await?,
-        Command::To { target, wait } => unimplemented!(),
+        Command::Status => status::run(client).await?,
+        Command::Stop => stop::run(client).await?,
+        Command::To { target, wait } => to::run(client, target, wait).await?,
     }
     Ok(())
 }
