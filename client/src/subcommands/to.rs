@@ -6,16 +6,23 @@ use desklink_common::{
 use tonic::Status;
 
 pub(crate) async fn run(mut client: Client, target: f32, wait: bool) -> Result<(), Status> {
-    let mut states = client
-        .subscribe_state(SubscribeStateRequest {})
-        .await?
-        .into_inner();
+    let states = if wait {
+        Some(
+            client
+                .subscribe_state(SubscribeStateRequest {})
+                .await?
+                .into_inner(),
+        )
+    } else {
+        None
+    };
+
     let StartMoveResponse {} = client
         .start_move(StartMoveRequest { target })
         .await?
         .into_inner();
 
-    if wait {
+    if let Some(mut states) = states {
         while let Some(state) = states.message().await? {
             info!(
                 "update state";
