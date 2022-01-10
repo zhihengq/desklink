@@ -5,7 +5,7 @@ use crate::{
     utils::{Position, Velocity},
 };
 use async_trait::async_trait;
-use desklink_common::{error, trace};
+use desklink_common::{error, trace, warn};
 use futures::Stream;
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;
@@ -104,6 +104,7 @@ pub trait Controller: Send {
         };
         match &result {
             Ok(()) => trace!("Finish moving to {}", position),
+            Err(ControllerError::Aborted) => warn!("{}", ControllerError::Aborted),
             Err(e) => error!("Error moving to {}: {}", position, e),
         }
         result
@@ -131,15 +132,20 @@ pub trait Controller: Send {
         let mut in_progress: InProgress<'_> = None;
 
         loop {
-            match in_progress.take() {
-                Some(mut task) => {
+            match &mut in_progress {
+                Some(task) => {
                     select! {
-                        result = &mut task => result?,
+                        result = &mut *task => {
+                            in_progress = None;
+                            match result {
+                                Ok(()) | Err(ControllerError::Aborted) => {}
+                                e => { return e; }
+                            }
+                        }
                         result = inputs.changed() => {
                             if result.is_err() {
                                 return task.await;
                             } else {
-                                drop(task); // must drop future before borrowing self
                                 unsafe {
                                     process_command(self, &mut inputs, &mut in_progress)
                                 }.await;
@@ -172,7 +178,8 @@ pub trait Controller: Send {
 type InProgress<'a> =
     Option<Pin<Box<dyn Future<Output = Result<(), ControllerError>> + Send + 'a>>>;
 
-// The future stored in `in_progress` must be dropped before self is borrowed again
+// `in_progress` may contain a mut borrow of controller.
+// `in_progress` must be set to None or passed back to this function before controller is borrowed again
 async unsafe fn process_command<'a, C: Controller + ?Sized + 'a>(
     controller: &mut C,
     inputs: &mut CommandReceiver,
@@ -182,7 +189,7 @@ async unsafe fn process_command<'a, C: Controller + ?Sized + 'a>(
     let command = inputs
         .borrow_and_update()
         .lock()
-        .expect("Poisoned mutex")
+        .unwrap()
         .take()
         .expect("No message");
     match command {
@@ -195,14 +202,15 @@ async unsafe fn process_command<'a, C: Controller + ?Sized + 'a>(
             result.send(Ok(stream)).unwrap_or(());
         }
         Command::Stop { complete } => {
+            // Future must be dropped before borrowing self
+            *in_progress = None;
             let result = controller.stop().await;
             complete.send(result).unwrap_or(());
         }
         Command::MoveTo { target, complete } => {
-            *in_progress = Some(
-                // future must be dropped before borrowing self
-                unsafe { self_ptr.as_mut() }.move_to(target),
-            );
+            // Future must be dropped before borrowing self
+            *in_progress = None;
+            *in_progress = Some(unsafe { self_ptr.as_mut() }.move_to(target));
             complete.send(Ok(())).unwrap_or(());
         }
     }

@@ -7,7 +7,7 @@ pub mod rpc {
 pub mod logging;
 logging::create_macro!($ critical);
 logging::create_macro!($ error);
-logging::create_macro!($ warning);
+logging::create_macro!($ warn);
 logging::create_macro!($ info);
 logging::create_macro!($ debug);
 logging::create_macro!($ trace);
