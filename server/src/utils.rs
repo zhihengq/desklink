@@ -63,7 +63,7 @@ impl TryFrom<[u8; 2]> for Position {
 
 impl Display for Position {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        write!(f, "{:.2} cm", self.to_cm())
+        write!(f, "{:>6.2} cm", self.to_cm())
     }
 }
 

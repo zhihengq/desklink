@@ -24,7 +24,7 @@ trait Position {
 
 impl Position for f32 {
     fn cm(self) -> String {
-        format!("{:.2} cm", self)
+        format!("{:>6.2} cm", self)
     }
 }
 
@@ -34,6 +34,6 @@ trait Velocity {
 
 impl Velocity for f32 {
     fn cm_per_s(self) -> String {
-        format!("{:.3} cm/s", self)
+        format!("{:>6.3} cm/s", self)
     }
 }

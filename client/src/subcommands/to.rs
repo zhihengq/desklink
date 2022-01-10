@@ -1,4 +1,4 @@
-use crate::Client;
+use crate::{Client, Position, Velocity};
 use desklink_common::{
     info,
     rpc::{StartMoveRequest, StartMoveResponse, SubscribeStateRequest},
@@ -25,9 +25,9 @@ pub(crate) async fn run(mut client: Client, target: f32, wait: bool) -> Result<(
     if let Some(mut states) = states {
         while let Some(state) = states.message().await? {
             info!(
-                "update state";
-                "position" => format!("{:.2} cm", state.position),
-                "velocity" => format!("{:.3} cm/s", state.velocity),
+                "Update";
+                "position" => state.position.cm(),
+                "velocity" => state.velocity.cm_per_s(),
             );
             if f32::abs(state.position - target) < 0.1 {
                 break;
