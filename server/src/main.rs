@@ -9,8 +9,8 @@ use desklink_server::{
 use futures::{FutureExt, StreamExt};
 use signal_hook::consts::signal;
 use signal_hook_tokio::Signals;
-use slog::{o, Drain, LevelFilter, Logger};
-use std::sync::Mutex;
+use slog::{o, Drain, Duplicate, Logger};
+use std::{fs::OpenOptions, sync::Mutex};
 use tokio::sync::watch;
 use tonic::transport::Server;
 
@@ -22,12 +22,22 @@ async fn main() -> Result<()> {
     println!("{:#?}", config);
 
     // Logger
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator)
+    let console_decorator = slog_term::TermDecorator::new().build();
+    let console_drain = slog_term::FullFormat::new(console_decorator)
         .use_original_order()
-        .build();
-    let drain = LevelFilter::new(drain, config.log.level);
-    let root = Logger::root(Mutex::new(drain).fuse(), o!());
+        .build()
+        .filter_level(config.log.level);
+    let root = if let Some(file) = config.log.file {
+        let file = OpenOptions::new().append(true).create(true).open(file)?;
+        let file_drain = slog_json::Json::default(file).filter_level(config.log.level);
+
+        Logger::root(
+            Mutex::new(Duplicate::new(file_drain, console_drain)).fuse(),
+            o!(),
+        )
+    } else {
+        Logger::root(Mutex::new(console_drain).fuse(), o!())
+    };
     logging::set(root);
 
     // Desk controller driver

@@ -32,6 +32,10 @@ mod args {
         #[structopt(short = "v", long, parse(try_from_str = logging::parse_log_level))]
         pub log_level: Option<Level>,
 
+        /// Log level [trace|debug|info|warning|error|critical]
+        #[structopt(short = "f", long, parse(from_os_str))]
+        pub log_file: Option<PathBuf>,
+
         /// Desk MAC address
         #[structopt(short, long)]
         pub desk: Option<BDAddr>,
@@ -65,6 +69,7 @@ mod file {
     pub struct LogConfig {
         #[serde(deserialize_with = "logging::deserialize_log_level")]
         pub level: Option<Level>,
+        pub file: Option<PathBuf>,
     }
 
     #[derive(Deserialize)]
@@ -83,6 +88,7 @@ pub struct Config {
 #[derive(Debug)]
 pub struct LogConfig {
     pub level: Level,
+    pub file: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -125,11 +131,15 @@ impl Config {
         let toml_config: file::Config = toml::from_str(&config_content)?;
 
         let config = Config {
-            log: LogConfig {
-                level: args
-                    .log_level
-                    .or_else(|| toml_config.log.and_then(|l| l.level))
-                    .unwrap_or(Level::Info),
+            log: {
+                let (log_level, log_file) = match toml_config.log {
+                    Some(log) => (log.level, log.file),
+                    None => (None, None),
+                };
+                LogConfig {
+                    level: args.log_level.or(log_level).unwrap_or(Level::Info),
+                    file: args.log_file.or(log_file),
+                }
             },
             desk: DeskConfig {
                 address: args
