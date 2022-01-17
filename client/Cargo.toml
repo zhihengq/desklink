@@ -11,7 +11,7 @@ path = "src/main.rs"
 desklink-common = { path = "../common" }
 anyhow = "*"
 directories = "*"
-serde = "*"
+serde = { version = "*", features = ["derive"] }
 slog = "*"
 slog-term = "*"
 structopt = "*"
