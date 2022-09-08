@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install dependencies
-      run: sudo apt install libdbus-1-dev pkg-config
+      run: sudo apt install libdbus-1-dev pkg-config protobuf-compiler
     - name: Build
       run: cargo build --verbose
     - name: Run tests
