@@ -9,21 +9,21 @@ path = "src/main.rs"
 
 [dependencies]
 desklink-common = { path = "../common" }
-anyhow = "*"
-async-trait = "*"
-btleplug = { version = "*", features = ["serde"] }
-directories = "*"
-futures = "*"
-serde = { version = "*", features = ["derive"] }
-signal-hook = "*"
-signal-hook-tokio = { version = "*", features = ["futures-v0_3"] }
-slog = "*"
-slog-term = "*"
-slog-json = "*"
-structopt = "*"
-thiserror = "*"
-toml = "*"
-tonic = "*"
-tokio = { version = "*", features = ["macros"] }
-tokio-stream = "*"
-uuid = "*"
+anyhow = "1.0.64"
+async-trait = "0.1.57"
+btleplug = { version = "0.10.0", features = ["serde"] }
+directories = "4.0.1"
+futures = "0.3.24"
+serde = { version = "1.0.144", features = ["derive"] }
+signal-hook = "0.3.14"
+signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
+slog = "2.7.0"
+slog-term = "2.9.0"
+slog-json = "2.6.1"
+structopt = "0.3.26"
+thiserror = "1.0.34"
+toml = "0.5.9"
+tonic = "0.8.1"
+tokio = { version = "1.21.0", features = ["macros"] }
+tokio-stream = "0.1.9"
+uuid = "1.1.2"

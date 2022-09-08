@@ -76,14 +76,14 @@ impl Desk {
         let characteristics = device.characteristics();
         let char_state = characteristics
             .iter()
-            .find(|c| c.uuid.to_hyphenated().to_string() == UUID_STATE)
+            .find(|c| c.uuid.hyphenated().to_string() == UUID_STATE)
             .ok_or(DeskError::CharacteristicNotFound {
                 purpose: "state",
                 uuid: UUID_STATE,
             })?;
         let char_command = characteristics
             .iter()
-            .find(|c| c.uuid.to_hyphenated().to_string() == UUID_COMMAND)
+            .find(|c| c.uuid.hyphenated().to_string() == UUID_COMMAND)
             .ok_or(DeskError::CharacteristicNotFound {
                 purpose: "command",
                 uuid: UUID_COMMAND,
@@ -146,7 +146,7 @@ impl Desk {
 
     pub async fn update(&mut self) -> Result<(Position, Velocity), DeskError> {
         let event = self.events.next().await.expect("No more events");
-        assert!(event.uuid.to_hyphenated().to_string() == UUID_STATE);
+        assert!(event.uuid.hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
         let (position, velocity) = Self::parse_state(raw_state)?;
         debug!("Updated state"; "position" => %position, "velocity" => %velocity);

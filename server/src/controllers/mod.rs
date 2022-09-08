@@ -210,7 +210,7 @@ async unsafe fn process_command<'a, C: Controller + ?Sized + 'a>(
         Command::MoveTo { target, complete } => {
             // Future must be dropped before borrowing self
             *in_progress = None;
-            *in_progress = Some(unsafe { self_ptr.as_mut() }.move_to(target));
+            *in_progress = Some(self_ptr.as_mut().move_to(target));
             complete.send(Ok(())).unwrap_or(());
         }
     }
