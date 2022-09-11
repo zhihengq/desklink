@@ -1,9 +1,7 @@
 use crate::{Client, Position, Velocity};
-use desklink_common::{
-    info,
-    rpc::{StartMoveRequest, StartMoveResponse, SubscribeStateRequest},
-};
+use desklink_common::rpc::{StartMoveRequest, StartMoveResponse, SubscribeStateRequest};
 use tonic::Status;
+use tracing::info;
 
 pub(crate) async fn run(mut client: Client, target: f32, wait: bool) -> Result<(), Status> {
     let states = if wait {
@@ -25,9 +23,9 @@ pub(crate) async fn run(mut client: Client, target: f32, wait: bool) -> Result<(
     if let Some(mut states) = states {
         while let Some(state) = states.message().await? {
             info!(
-                "Update";
-                "position" => state.position.cm(),
-                "velocity" => state.velocity.cm_per_s(),
+                position = state.position.cm(),
+                velocity = state.velocity.cm_per_s(),
+                "Update",
             );
             if f32::abs(state.position - target) < 0.1 {
                 break;

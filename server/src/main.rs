@@ -1,5 +1,4 @@
 use anyhow::Result;
-use desklink_common::{info, logging};
 use desklink_server::{
     config::Config,
     controllers,
@@ -9,10 +8,9 @@ use desklink_server::{
 use futures::{FutureExt, StreamExt};
 use signal_hook::consts::signal;
 use signal_hook_tokio::Signals;
-use slog::{o, Drain, Duplicate, Logger};
-use std::{fs::OpenOptions, sync::Mutex};
 use tokio::sync::watch;
 use tonic::transport::Server;
+use tracing::info;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -22,23 +20,18 @@ async fn main() -> Result<()> {
     println!("{:#?}", config);
 
     // Logger
-    let console_decorator = slog_term::TermDecorator::new().build();
-    let console_drain = slog_term::FullFormat::new(console_decorator)
-        .use_original_order()
-        .build()
-        .filter_level(config.log.level);
-    let root = if let Some(file) = config.log.file {
-        let file = OpenOptions::new().append(true).create(true).open(file)?;
-        let file_drain = slog_json::Json::default(file).filter_level(config.log.level);
-
-        Logger::root(
-            Mutex::new(Duplicate::new(file_drain, console_drain)).fuse(),
-            o!(),
-        )
+    let subscriber_builder = tracing_subscriber::fmt().with_max_level(config.log.level);
+    let mut _log_guard;
+    if let Some((directory, file_name)) = config.log.file {
+        let file_appender = tracing_appender::rolling::never(directory, file_name);
+        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+        subscriber_builder.with_writer(non_blocking).json().init();
+        _log_guard = guard;
     } else {
-        Logger::root(Mutex::new(console_drain).fuse(), o!())
-    };
-    logging::set(root);
+        let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stdout());
+        subscriber_builder.with_writer(non_blocking).init();
+        _log_guard = guard;
+    }
 
     // Desk controller driver
     let desk = Desk::find(config.desk.address).await?;

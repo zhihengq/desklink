@@ -1,11 +1,11 @@
 use clap::Parser;
-use desklink_common::{logging, PROJECT_NAME};
+use desklink_common::{deserialize_log_level, PROJECT_NAME};
 use directories::ProjectDirs;
 use serde::{de::Deserializer, Deserialize};
-use slog::Level;
 use std::{collections::HashMap, io, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use tonic::transport::Endpoint;
+use tracing::Level;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -32,7 +32,7 @@ mod args {
     #[derive(Parser, Debug)]
     pub struct Args {
         /// Log level [trace|debug|info|warning|error|critical]
-        #[clap(short = 'v', long, parse(try_from_str = logging::parse_log_level))]
+        #[clap(short = 'v', long)]
         pub log_level: Option<Level>,
 
         /// Override config file path
@@ -80,7 +80,7 @@ mod file {
 
     #[derive(Deserialize)]
     pub struct LogConfig {
-        #[serde(deserialize_with = "logging::deserialize_log_level")]
+        #[serde(deserialize_with = "deserialize_log_level")]
         pub level: Option<Level>,
     }
 
@@ -158,7 +158,7 @@ impl Config {
                 level: args
                     .log_level
                     .or_else(|| toml_config.log.and_then(|l| l.level))
-                    .unwrap_or(Level::Info),
+                    .unwrap_or(Level::INFO),
             },
             client: ClientConfig {
                 server: args

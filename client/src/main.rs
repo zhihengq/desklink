@@ -1,8 +1,6 @@
 use anyhow::Result;
 use desklink_client::config::Config;
-use desklink_common::{logging, rpc::desk_service_client::DeskServiceClient};
-use slog::{o, Drain, LevelFilter, Logger};
-use std::sync::Mutex;
+use desklink_common::rpc::desk_service_client::DeskServiceClient;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
@@ -12,13 +10,9 @@ async fn main() -> Result<()> {
     println!("{:#?}", config);
 
     // Logger
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator)
-        .use_original_order()
-        .build();
-    let drain = LevelFilter::new(drain, config.log.level);
-    let root = Logger::root(Mutex::new(drain).fuse(), o!());
-    logging::set(root);
+    tracing_subscriber::fmt()
+        .with_max_level(config.log.level)
+        .init();
 
     // Run command
     let client = DeskServiceClient::connect(config.client.server).await?;

@@ -1,11 +1,11 @@
 use btleplug::api::BDAddr;
 use clap::Parser;
-use desklink_common::{logging, PROJECT_NAME};
+use desklink_common::{deserialize_log_level, PROJECT_NAME};
 use directories::ProjectDirs;
 use serde::Deserialize;
-use slog::Level;
-use std::{io, net::SocketAddr, path::PathBuf};
+use std::{ffi::OsString, io, net::SocketAddr, path::PathBuf};
 use thiserror::Error;
+use tracing::Level;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -21,6 +21,9 @@ pub enum ConfigError {
 
     #[error("Missing config field for {0}")]
     MissingConfigField(&'static str),
+
+    #[error("Invalid path to the log file {0}")]
+    InvalidLogfile(PathBuf),
 }
 
 mod args {
@@ -29,7 +32,7 @@ mod args {
     #[derive(Parser, Debug)]
     pub struct Args {
         /// Log level [trace|debug|info|warning|error|critical]
-        #[clap(short = 'v', long, parse(try_from_str = logging::parse_log_level))]
+        #[clap(short = 'v', long)]
         pub log_level: Option<Level>,
 
         /// Log file
@@ -67,7 +70,7 @@ mod file {
 
     #[derive(Deserialize)]
     pub struct LogConfig {
-        #[serde(deserialize_with = "logging::deserialize_log_level")]
+        #[serde(deserialize_with = "deserialize_log_level")]
         pub level: Option<Level>,
         pub file: Option<PathBuf>,
     }
@@ -88,7 +91,7 @@ pub struct Config {
 #[derive(Debug)]
 pub struct LogConfig {
     pub level: Level,
-    pub file: Option<PathBuf>,
+    pub file: Option<(PathBuf, OsString)>,
 }
 
 #[derive(Debug)]
@@ -137,8 +140,20 @@ impl Config {
                     None => (None, None),
                 };
                 LogConfig {
-                    level: args.log_level.or(log_level).unwrap_or(Level::Info),
-                    file: args.log_file.or(log_file),
+                    level: args.log_level.or(log_level).unwrap_or(Level::INFO),
+                    file: args
+                        .log_file
+                        .or(log_file)
+                        .map(|path| {
+                            if let (Some(directory), Some(file_name)) =
+                                (path.parent(), path.file_name())
+                            {
+                                Ok((directory.to_owned(), file_name.to_owned()))
+                            } else {
+                                Err(ConfigError::InvalidLogfile(path))
+                            }
+                        })
+                        .transpose()?,
                 }
             },
             desk: DeskConfig {

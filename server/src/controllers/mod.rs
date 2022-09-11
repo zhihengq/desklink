@@ -5,7 +5,6 @@ use crate::{
     utils::{Position, Velocity},
 };
 use async_trait::async_trait;
-use desklink_common::{error, trace, warn};
 use futures::Stream;
 use std::{cmp::Ordering, future::Future, pin::Pin, ptr::NonNull, sync::Mutex};
 use thiserror::Error;
@@ -14,6 +13,7 @@ use tokio::{
     sync::{oneshot, watch},
 };
 use tokio_stream::wrappers::WatchStream;
+use tracing::{error, trace, warn};
 
 #[derive(Error, Debug)]
 pub enum ControllerError {
