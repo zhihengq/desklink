@@ -1,10 +1,10 @@
 use btleplug::api::BDAddr;
+use clap::Parser;
 use desklink_common::{logging, PROJECT_NAME};
 use directories::ProjectDirs;
 use serde::Deserialize;
 use slog::Level;
 use std::{io, net::SocketAddr, path::PathBuf};
-use structopt::StructOpt;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -26,26 +26,26 @@ pub enum ConfigError {
 mod args {
     use super::*;
 
-    #[derive(StructOpt)]
+    #[derive(Parser, Debug)]
     pub struct Args {
         /// Log level [trace|debug|info|warning|error|critical]
-        #[structopt(short = "v", long, parse(try_from_str = logging::parse_log_level))]
+        #[clap(short = 'v', long, parse(try_from_str = logging::parse_log_level))]
         pub log_level: Option<Level>,
 
-        /// Log level [trace|debug|info|warning|error|critical]
-        #[structopt(short = "f", long, parse(from_os_str))]
+        /// Log file
+        #[clap(short = 'f', long)]
         pub log_file: Option<PathBuf>,
 
         /// Desk MAC address
-        #[structopt(short, long)]
+        #[clap(short, long)]
         pub desk: Option<BDAddr>,
 
         /// Override config file path
-        #[structopt(short, long, parse(from_os_str))]
+        #[clap(short, long)]
         pub config: Option<PathBuf>,
 
         /// Server bind address and port
-        #[structopt(short, long)]
+        #[clap(short, long)]
         pub server: Option<SocketAddr>,
     }
 }
@@ -103,7 +103,7 @@ pub struct ServerConfig {
 
 impl Config {
     pub fn get() -> Result<Self, ConfigError> {
-        let args = args::Args::from_args();
+        let args = args::Args::parse();
         let (config_path, is_explicit) = match args.config {
             Some(path) => (Some(path), true),
             None => {

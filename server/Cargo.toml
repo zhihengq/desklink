@@ -12,6 +12,7 @@ desklink-common = { path = "../common" }
 anyhow = "1.0.64"
 async-trait = "0.1.57"
 btleplug = { version = "0.10.0", features = ["serde"] }
+clap = { version = "3.2.20", features = ["derive"] }
 directories = "4.0.1"
 futures = "0.3.24"
 serde = { version = "1.0.144", features = ["derive"] }
@@ -20,7 +21,6 @@ signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 slog = "2.7.0"
 slog-term = "2.9.0"
 slog-json = "2.6.1"
-structopt = "0.3.26"
 thiserror = "1.0.34"
 toml = "0.5.9"
 tonic = "0.8.1"

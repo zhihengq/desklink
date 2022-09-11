@@ -1,9 +1,9 @@
+use clap::Parser;
 use desklink_common::{logging, PROJECT_NAME};
 use directories::ProjectDirs;
 use serde::{de::Deserializer, Deserialize};
 use slog::Level;
 use std::{collections::HashMap, io, path::PathBuf, str::FromStr};
-use structopt::StructOpt;
 use thiserror::Error;
 use tonic::transport::Endpoint;
 
@@ -29,26 +29,26 @@ pub enum ConfigError {
 mod args {
     use super::*;
 
-    #[derive(StructOpt)]
+    #[derive(Parser, Debug)]
     pub struct Args {
         /// Log level [trace|debug|info|warning|error|critical]
-        #[structopt(short = "v", long, parse(try_from_str = logging::parse_log_level))]
+        #[clap(short = 'v', long, parse(try_from_str = logging::parse_log_level))]
         pub log_level: Option<Level>,
 
         /// Override config file path
-        #[structopt(short, long, parse(from_os_str))]
+        #[clap(short, long)]
         pub config: Option<PathBuf>,
 
         /// Server address and port
-        #[structopt(short, long)]
+        #[clap(short, long)]
         pub server: Option<Endpoint>,
 
         /// Command
-        #[structopt(subcommand)]
+        #[clap(subcommand)]
         pub command: Command,
     }
 
-    #[derive(StructOpt)]
+    #[derive(Parser, Debug)]
     pub enum Command {
         /// Check the current position and velocity of the desk
         Status,
@@ -62,7 +62,7 @@ mod args {
             target: String,
 
             /// Monitor desk position and wait until target is reached
-            #[structopt(short, long)]
+            #[clap(short, long)]
             wait: bool,
         },
     }
@@ -126,7 +126,7 @@ pub enum Command {
 
 impl Config {
     pub fn get() -> Result<Self, ConfigError> {
-        let args = args::Args::from_args();
+        let args = args::Args::parse();
         let (config_path, is_explicit) = match args.config {
             Some(path) => (Some(path), true),
             None => {
