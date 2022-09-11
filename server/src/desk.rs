@@ -13,7 +13,7 @@ use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use thiserror::Error;
 use tokio::sync::watch;
-use tracing::{debug, error, trace};
+use tracing::{debug, trace};
 
 #[derive(Error, Debug)]
 pub enum DeskError {
@@ -96,7 +96,7 @@ impl Desk {
         // state notification
         let raw_state = device.read(char_state).await?;
         let (position, velocity) = Self::parse_state(raw_state)?;
-        debug!(position = %position, velocity = %velocity, "Initial state");
+        debug!(%position, %velocity, "Initial state");
         let (tx, rx) = watch::channel((position, velocity));
 
         Ok(Desk {
@@ -149,7 +149,7 @@ impl Desk {
         assert!(event.uuid.hyphenated().to_string() == UUID_STATE);
         let raw_state = event.value;
         let (position, velocity) = Self::parse_state(raw_state)?;
-        debug!(position = %position, velocity = %velocity, "Updated state");
+        debug!(%position, %velocity, "Updated state");
         self.state_publisher.send_replace((position, velocity));
         Ok((position, velocity))
     }

@@ -21,17 +21,20 @@ async fn main() -> Result<()> {
 
     // Logger
     let subscriber_builder = tracing_subscriber::fmt().with_max_level(config.log.level);
-    let mut _log_guard;
-    if let Some((directory, file_name)) = config.log.file {
+    let _log_guard = if let Some((directory, file_name)) = config.log.file {
         let file_appender = tracing_appender::rolling::never(directory, file_name);
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
         subscriber_builder.with_writer(non_blocking).json().init();
-        _log_guard = guard;
+        guard
     } else {
         let (non_blocking, guard) = tracing_appender::non_blocking(std::io::stdout());
-        subscriber_builder.with_writer(non_blocking).init();
-        _log_guard = guard;
-    }
+        subscriber_builder
+            .with_writer(non_blocking)
+            .pretty()
+            .compact()
+            .init();
+        guard
+    };
 
     // Desk controller driver
     let desk = Desk::find(config.desk.address).await?;

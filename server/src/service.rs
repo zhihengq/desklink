@@ -55,11 +55,7 @@ impl DeskServiceTrait for DeskService {
                 Ok(Response::new(response))
             }
         };
-        info!(
-            request = ?request,
-            response = ?response,
-            "GetState",
-        );
+        info!(?request, ?response, "GetState");
         response
     }
 
@@ -85,10 +81,10 @@ impl DeskServiceTrait for DeskService {
             }
         };
         info!(
-            request = ?request,
+            ?request,
             response = match &response {
                 Ok(_) => "Ok(...)".to_owned(),
-                Err(status) => format!("Err({:?})", status)
+                Err(status) => format!("Err({:?})", status),
             },
             "SubscribeState",
         );
@@ -104,11 +100,7 @@ impl DeskServiceTrait for DeskService {
             Ok(Err(e)) => Err(e.into()),
             Ok(Ok(())) => Ok(Response::new(StopResponse {})),
         };
-        info!(
-            request = ?request,
-            response = ?response,
-            "Stop",
-        );
+        info!(?request, ?response, "Stop");
         response
     }
 
@@ -135,11 +127,7 @@ impl DeskServiceTrait for DeskService {
             Ok(Err(e)) => Err(e.into()),
             Ok(Ok(())) => Ok(Response::new(StartMoveResponse {})),
         };
-        info!(
-            request = ?request,
-            response = ?response,
-            "StartMove",
-        );
+        info!(?request, ?response, "StartMove");
         response
     }
 }
